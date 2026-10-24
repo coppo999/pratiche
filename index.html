@@ -1,0 +1,876 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#1F3864">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Pratiche">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" href="icon-192.png">
+<title>Pratiche Studio</title>
+<style>
+:root{--navy:#1F3864;--navy2:#2b4f8c;--gold:#C9A84C;--bg:#f2f4f8;--panel:#fff;--panel2:#f6f7fb;--line:#e3e7ef;--text:#1b2433;--muted:#6b7588;--accent:#2563eb;--bad:#c0362c;--ok:#059669;--r:14px;--sb:env(safe-area-inset-bottom,0px);--st:env(safe-area-inset-top,0px)}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1520;--panel:#171f2d;--panel2:#1d2738;--line:#2a3548;--text:#e8edf6;--muted:#93a0b6;--accent:#6ea0ff}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--text);font:15px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-text-size-adjust:100%}
+button,input,select,textarea{font:inherit;color:inherit}
+a{color:var(--accent)}
+.hdr{position:sticky;top:0;z-index:20;background:linear-gradient(120deg,var(--navy),var(--navy2));color:#fff;padding:calc(var(--st) + 10px) 16px 12px}
+.hdr .row{display:flex;align-items:center;gap:10px}
+.hdr h1{font-size:19px;margin:0;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hdr .sub{font-size:13px;color:#cfdaf0;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ib{width:38px;height:38px;border-radius:11px;border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.1);color:#fff;display:grid;place-items:center;flex:none;cursor:pointer}
+.ib svg{width:19px;height:19px}
+.search{margin-top:10px;display:flex;gap:8px}
+.search input{flex:1;min-width:0;border:0;border-radius:12px;padding:10px 12px;background:rgba(255,255,255,.95);color:#1b2433;font-size:16px}
+.chips{display:flex;gap:6px;overflow-x:auto;padding:10px 16px 2px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;border:1px solid var(--line);background:var(--panel);border-radius:99px;padding:6px 12px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer}
+.chip.on{background:var(--navy);border-color:var(--navy);color:#fff}
+main{padding:8px 12px calc(84px + var(--sb))}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:14px;margin:10px 0}
+.card h3{margin:0 0 8px;font-size:14px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.list{display:flex;flex-direction:column;gap:8px;margin-top:8px}
+.pr{display:flex;gap:11px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:11px 12px;cursor:pointer}
+.pr:active{transform:scale(.99)}
+.cod{flex:none;min-width:58px;text-align:center;border-radius:10px;padding:7px 6px;font-weight:800;font-size:13.5px;color:#fff;background:var(--cc,#64748b)}
+.pr .tx{flex:1;min-width:0}
+.pr b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pr small{display:block;color:var(--muted);font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.st{flex:none;font-size:11.5px;font-weight:700;padding:3px 8px;border-radius:99px;color:var(--sc);background:color-mix(in srgb,var(--sc) 14%,transparent);max-width:96px;text-align:center}
+.more{text-align:center;color:var(--muted);padding:14px;font-size:13px}
+.tabbar{position:fixed;left:0;right:0;bottom:0;z-index:30;display:flex;background:var(--panel);border-top:1px solid var(--line);padding:6px 6px calc(6px + var(--sb))}
+.tabbar button{flex:1;border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11.5px;font-weight:600;color:var(--muted);padding:4px;cursor:pointer}
+.tabbar button svg{width:23px;height:23px}
+.tabbar button.on{color:var(--navy)}
+@media (prefers-color-scheme:dark){.tabbar button.on{color:var(--gold)}}
+.tabbar .plus{color:#fff!important}
+.tabbar .plus span.pl{width:44px;height:44px;border-radius:14px;background:var(--gold);display:grid;place-items:center;margin-top:-18px;box-shadow:0 6px 16px rgba(201,168,76,.45)}
+.tabbar .plus{color:var(--muted)!important}
+.seg{display:flex;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:3px;margin:12px 0 4px}
+.seg button{flex:1;border:0;background:none;border-radius:9px;padding:8px 4px;font-weight:600;font-size:13.5px;color:var(--muted);cursor:pointer}
+.seg button.on{background:var(--panel);color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,.1)}
+.acts{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px}
+.act{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11.5px;font-weight:600;color:#fff;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);border-radius:12px;padding:8px 4px;text-decoration:none;cursor:pointer}
+.act svg{width:20px;height:20px}
+.act.off{opacity:.35;pointer-events:none}
+.f{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
+.f label{font-size:12.5px;font-weight:600;color:var(--muted)}
+.f input,.f select,.f textarea{width:100%;border:1px solid var(--line);background:var(--panel2);border-radius:11px;padding:10px 11px;font-size:16px}
+.f textarea{resize:vertical}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:0 10px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0 10px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;border:1px solid var(--line);background:var(--panel);border-radius:12px;padding:10px 14px;font-weight:600;cursor:pointer;text-decoration:none;color:var(--text)}
+.btn svg{width:18px;height:18px}
+.btn.pri{background:var(--navy);border-color:var(--navy);color:#fff}
+.btn.gold{background:var(--gold);border-color:var(--gold);color:#1b2433}
+.btn.bad{color:var(--bad)}
+.btn.full{width:100%}
+.btn:disabled{opacity:.5}
+.row2{display:flex;gap:8px;flex-wrap:wrap}
+.row2 .btn{flex:1}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;font-size:14px}
+.kv dt{color:var(--muted)}
+.kv dd{margin:0;word-break:break-word}
+.stbar{display:flex;gap:8px;align-items:center}
+.stbar .dot{width:12px;height:12px;border-radius:50%;flex:none}
+.stbar select{flex:1}
+.ok{font-size:12px;color:var(--ok);min-height:16px;margin-top:2px}
+.crumbs{display:flex;gap:4px;flex-wrap:wrap;font-size:13px;color:var(--muted);margin:4px 0 8px}
+.crumbs a{text-decoration:none;font-weight:600}
+.fl{display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.fi{display:flex;align-items:center;gap:11px;padding:10px 12px;border-bottom:1px solid var(--line);cursor:pointer;text-decoration:none;color:var(--text)}
+.fi:last-child{border-bottom:0}
+.fi .ic{width:38px;height:38px;border-radius:9px;flex:none;display:grid;place-items:center;font-size:10.5px;font-weight:800;color:#fff;background:#64748b;overflow:hidden;background-size:cover;background-position:center}
+.fi .ic.dir{background:#e8b33c}
+.fi .tx{flex:1;min-width:0}
+.fi b{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:14.5px}
+.fi small{color:var(--muted);font-size:12px}
+.fi .mn{flex:none;width:34px;height:34px;border:0;background:none;color:var(--muted);font-size:20px;cursor:pointer}
+.up{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}
+.dia{display:flex;flex-direction:column;gap:0}
+.de{display:flex;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}
+.de:last-child{border-bottom:0}
+.de i{font-style:normal;width:26px;height:26px;border-radius:50%;background:var(--panel2);display:grid;place-items:center;flex:none;font-size:12px;color:var(--navy)}
+.de small{display:block;color:var(--muted);font-size:12px}
+.toast{position:fixed;left:50%;bottom:calc(92px + var(--sb));transform:translateX(-50%);background:#1b2433;color:#fff;padding:10px 16px;border-radius:12px;font-size:14px;z-index:99;max-width:92vw;box-shadow:0 8px 24px rgba(0,0,0,.25);opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.on{opacity:1}.toast.err{background:var(--bad)}
+.sheet-bg{position:fixed;inset:0;background:rgba(10,15,25,.45);z-index:60;display:flex;align-items:flex-end}
+.sheet{background:var(--panel);width:100%;border-radius:18px 18px 0 0;padding:14px 14px calc(14px + var(--sb));max-height:88vh;overflow:auto}
+.sheet h2{font-size:16px;margin:2px 4px 12px}
+.sheet .opt{display:flex;align-items:center;gap:12px;width:100%;border:0;background:none;padding:13px 6px;font-size:16px;border-bottom:1px solid var(--line);cursor:pointer;text-align:left;color:var(--text)}
+.sheet .opt:last-child{border-bottom:0}
+.sheet .opt svg{width:20px;height:20px;color:var(--muted)}
+.sheet .opt.bad{color:var(--bad)}
+.empty{text-align:center;color:var(--muted);padding:40px 16px}
+.spin{display:inline-block;width:15px;height:15px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px}
+@keyframes sp{to{transform:rotate(360deg)}}
+.center{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:linear-gradient(160deg,var(--navy),#14254a)}
+.login{background:var(--panel);border-radius:20px;padding:26px 22px;max-width:420px;width:100%;text-align:center}
+.login h1{margin:8px 0 4px;font-size:22px;color:var(--navy)}
+@media (prefers-color-scheme:dark){.login h1{color:var(--gold)}}
+.login p{color:var(--muted);font-size:14px}
+.logo{width:64px;height:64px;border-radius:18px;background:var(--navy);display:grid;place-items:center;margin:0 auto;color:var(--gold);font-weight:800;font-size:22px}
+code{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:1px 5px;font-size:12.5px;word-break:break-all}
+.pv{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--sc);border-radius:var(--r);padding:12px;margin:8px 0}
+.pv .t{display:flex;justify-content:space-between;gap:8px}
+.pv .t b{font-size:15px}
+.pv .s{color:var(--muted);font-size:13px;margin:2px 0 8px}
+.voce{display:grid;grid-template-columns:1fr 92px 34px;gap:6px;margin-bottom:6px}
+.voce input{border:1px solid var(--line);background:var(--panel2);border-radius:10px;padding:9px;font-size:15px;width:100%}
+.voce button{border:0;background:none;color:var(--bad);font-size:18px}
+.tot{display:flex;justify-content:space-between;font-weight:700;margin:8px 0}
+.warn{background:color-mix(in srgb,#f59e0b 14%,transparent);border-radius:10px;padding:8px 10px;font-size:13px;margin:8px 0}
+.prog{height:4px;background:var(--line);border-radius:4px;overflow:hidden;margin-top:6px}.prog i{display:block;height:100%;background:var(--accent);width:0}
+.hint{font-size:12.5px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="toast" id="toast"></div>
+<script src="config.js"></script>
+<script>
+"use strict";
+/* ================= Pratiche Studio · versione per il telefono =================
+   Legge e scrive direttamente nella cartella OneDrive\Lavoro tramite Microsoft Graph.
+   Stessi file del programma sul PC: <anno>/<cartella pratica>/_pratica.json,
+   _Preventivi/_preventivi.json, _pratiche_per_contabilita.json, _sync/numeri_contabilita.json */
+
+/* ---------- utilità ---------- */
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const norm = s => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+const camel = s => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^A-Za-z0-9 ]+/g, " ").trim().split(/\s+/).filter(Boolean).map(w => w[0].toUpperCase() + w.slice(1)).join("");
+const safeName = s => String(s || "").replace(/[\\/:*?"<>|#%]+/g, "-").replace(/\s+/g, " ").trim().replace(/[. ]+$/, "");
+const num = v => { const n = parseFloat(String(v ?? "").replace(/\./g, "").replace(",", ".")); return isFinite(n) ? n : 0; };
+const eur = n => (+n || 0).toLocaleString("it-IT", { style: "currency", currency: "EUR" });
+const oggi = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
+const dataIt = s => { if (!s) return ""; const d = new Date(s.length === 10 ? s + "T12:00:00" : s); return isNaN(d) ? s : d.toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric" }); };
+const dataOra = s => { const d = new Date(s); return isNaN(d) ? "" : d.toLocaleString("it-IT", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }); };
+const titleCase = s => String(s || "").toLowerCase().replace(/(^|[\s'’(\-\/])(\p{L})/gu, (m, a, b) => a + b.toUpperCase());
+const natCmp = (a, b) => a.localeCompare(b, "it", { numeric: true, sensitivity: "base" });
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const ls = { get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }, del(k) { try { localStorage.removeItem(k); } catch (e) {} } };
+let toastT;
+function toast(t, err) { const e = $("#toast"); e.textContent = t; e.className = "toast on" + (err ? " err" : ""); clearTimeout(toastT); toastT = setTimeout(() => e.className = "toast", err ? 4500 : 2600); }
+const fmtSize = n => n == null ? "" : n < 1024 ? n + " B" : n < 1048576 ? Math.round(n / 1024) + " KB" : (n / 1048576).toFixed(1) + " MB";
+
+const I = {
+  list: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>',
+  euro: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 6.5A7 7 0 1 0 17 17.5"/><path d="M4 10h9M4 14h9"/></svg>',
+  plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  back: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>',
+  phone: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/></svg>',
+  chat: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-12.4 7.4L3 21l2.1-5.6A8.4 8.4 0 1 1 21 11.5z"/></svg>',
+  mail: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>',
+  map: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>',
+  cam: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>',
+  up: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>',
+  fold: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M12 11v5M9.5 13.5h5"/></svg>',
+  ext: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3"/></svg>',
+  edit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
+  trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>',
+  eye: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>',
+  ref: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.5 9a9 9 0 0 1 14.8-3.4L23 10M1 14l4.7 4.4A9 9 0 0 0 20.5 15"/></svg>',
+  cog: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 7 19.4a1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 1.2 14H1a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 2.6 7a1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.7 1.7 0 0 0 9 1.2V1a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0 1.2 2.9H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>',
+  ok: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>',
+};
+
+/* ---------- stesse tabelle del programma sul PC ---------- */
+const STATI = { attesa: "In attesa di conferma", in_corso: "In corso", attesa_pagamento: "In attesa di pagamento", fattura_inviata: "Fattura inviata", nota_inviata: "Nota di pagamento inviata", pagata: "Conclusa e pagata", sospesa: "Sospesa", conclusa: "Conclusa", non_eseguita: "Non eseguita" };
+const STATI_BREVI = { attesa: "Da confermare", in_corso: "In corso", attesa_pagamento: "Da pagare", fattura_inviata: "Fattura inviata", nota_inviata: "Nota inviata", pagata: "Pagata", sospesa: "Sospesa", conclusa: "Conclusa", non_eseguita: "Non eseguita" };
+const STATI_VECCHI = { aperta: "attesa", depositata: "in_corso", integrazione: "in_corso", annullata: "non_eseguita" };
+const ST_COL = { attesa: "#d97706", in_corso: "#2563eb", attesa_pagamento: "#ca8a04", fattura_inviata: "#ca8a04", nota_inviata: "#ca8a04", pagata: "#059669", sospesa: "#d97706", conclusa: "#10b981", non_eseguita: "#c0362c" };
+const ST_CHIUSI = ["conclusa", "pagata", "non_eseguita"];
+const ST_DAPAGARE = ["attesa_pagamento", "fattura_inviata", "nota_inviata"];
+const normStato = s => STATI_VECCHI[s] || s || "";
+const TIPI = [["APE", "Ape"], ["CILA", "Cila"], ["CILA in sanatoria", "CilaSanatoria"], ["SCIA", "Scia"], ["SCIA in sanatoria", "SciaSanatoria"], ["DOCFA / aggiornamento catastale", "Docfa"], ["Accesso atti", "AccessoAtti"], ["Accesso atti + APE", "AccessoApe"], ["Agibilità", "Agibilita"], ["Conformità urbanistica e catastale", "Conformita"], ["Idoneità alloggiativa", "IdoneitaAlloggiativa"], ["Certificazione impianti", "CertImpianti"], ["Relazione tecnica", "Relazione"], ["Permesso di costruire", "Pdc"], ["Altro", "Pratica"]];
+const CATS = [["ape", /ape\b|^ape|accessoape/i], ["sanatoria", /sanatoria/i], ["cila", /cila/i], ["scia", /scia/i], ["catasto", /docfa|catast|accatast|frazionam|visura/i], ["accesso", /access|plan/i], ["agibilita", /agibilit/i], ["conformita", /conformit|confimp/i], ["idoneita", /idoneit/i], ["impianti", /impiant|legge10|caldaia|riscald|idric/i]];
+const catOf = s => { for (const [k, re] of CATS) if (re.test(s)) return k; return "altro"; };
+const CATCOL = { ape: "#16a34a", cila: "#2563eb", scia: "#7c3aed", sanatoria: "#ea580c", catasto: "#0d9488", accesso: "#475569", agibilita: "#db2777", conformita: "#4f46e5", idoneita: "#0891b2", impianti: "#ca8a04", altro: "#64748b" };
+const SOTTOCARTELLE = ["Documenti cliente", "Catasto", "Disegni", "Pratica Comunale", "Foto"];
+const CARTELLA_BASE = "basecad";
+const DIARIO_IC = { crea: "★", stato: "●", nota: "✎", euro: "€", prev: "€", dati: "✎", doc: "▤", upload: "↑", del: "✕", move: "→", ren: "✎", manuale: "❝", file: "▢", data: "◆" };
+const PRESET_VOCI = {
+  ape: [{ t: "Attestato di Prestazione Energetica (APE)", d: "Sopralluogo presso l'immobile e rilievo dei dati energetici (involucro e impianti)\nRedazione dell'APE e trasmissione al Catasto Energetico Regionale", imp: "" }],
+  cila: [{ t: "Sopralluogo e rilievo architettonico", d: "Sopralluogo presso l'immobile\nRilievo architettonico puntuale dello stato di fatto", imp: 200 }, { t: "Presentazione pratica comunale (CILA)", d: "Redazione del progetto (stato di fatto, progetto, comparativa)\nPresentazione della pratica al SUE con tutta la documentazione annessa necessaria (relazioni, dichiarazioni, ecc.)", imp: 800 }, { t: "Aggiornamento Catasto Fabbricati (DOCFA)", d: "Redazione DOCFA per aggiornamento della planimetria catastale dell'unità immobiliare", imp: 250 }],
+  sanatoria: [{ t: "Sopralluogo, rilievo e verifica conformità", d: "Sopralluogo e rilievo architettonico dello stato di fatto\nAccesso agli atti e verifica della conformità urbanistica e catastale", imp: "" }, { t: "Pratica edilizia in sanatoria", d: "Redazione elaborati grafici (stato assentito, stato di fatto, comparativa)\nRelazione tecnica e presentazione della pratica in sanatoria al SUE", imp: "" }, { t: "Aggiornamento Catasto Fabbricati (DOCFA)", d: "Redazione DOCFA per aggiornamento della planimetria catastale", imp: 250 }],
+  scia: [{ t: "Sopralluogo e rilievo architettonico", d: "Sopralluogo presso l'immobile\nRilievo architettonico puntuale dello stato di fatto", imp: 200 }, { t: "Presentazione pratica comunale (SCIA)", d: "Redazione del progetto e degli elaborati grafici\nPresentazione della SCIA al SUE con tutta la documentazione annessa necessaria", imp: "" }],
+  catasto: [{ t: "Aggiornamento Catasto Fabbricati (DOCFA)", d: "Sopralluogo e rilievo dell'unità immobiliare\nRedazione e presentazione DOCFA per aggiornamento catastale", imp: 250 }],
+  accesso: [{ t: "Accesso agli atti", d: "Richiesta di accesso agli atti presso il Comune competente\nRitiro e consegna della documentazione edilizia reperita", imp: "" }],
+  agibilita: [{ t: "Segnalazione Certificata di Agibilità", d: "Raccolta e verifica della documentazione (certificazioni impianti, catasto, APE)\nPresentazione della SCA presso il SUE", imp: "" }],
+  conformita: [{ t: "Verifica di conformità urbanistica e catastale", d: "Accesso agli atti e reperimento titoli edilizi\nSopralluogo e confronto stato di fatto / titoli / planimetria catastale\nRelazione tecnica di conformità", imp: "" }],
+  idoneita: [{ t: "Certificato di idoneità alloggiativa", d: "Sopralluogo presso l'alloggio\nVerifica dei requisiti igienico-sanitari e redazione della certificazione", imp: "" }],
+};
+const presetFor = cat => JSON.parse(JSON.stringify(PRESET_VOCI[cat] || PRESET_VOCI[cat === "impianti" ? "conformita" : "x"] || [{ t: "Prestazione professionale", d: "", imp: "" }]));
+function calcPrev(o) {
+  const imp = o.voci.reduce((a, v) => a + num(v.imp), 0), cassa = imp * (num(o.cassa) / 100), base = imp + cassa;
+  const iva = o.regime === "ordinario" ? base * 0.22 : 0, bollo = o.regime === "forfettario" && base > 77.47 ? 2 : 0;
+  return { imp, cassa, base, iva, bollo, tot: base + iva + bollo };
+}
+
+/* ================= Accesso Microsoft (OAuth 2 con PKCE, senza librerie) ================= */
+const CFG = { get clientId() { return ls.get("ps_client", "") || (window.PS_CLIENT_ID || ""); }, get root() { return ls.get("ps_root", "Lavoro"); } };
+const AUTH = "https://login.microsoftonline.com/common/oauth2/v2.0";
+const SCOPES = "Files.ReadWrite User.Read offline_access";
+const REDIRECT = location.origin + location.pathname.replace(/index\.html$/, "");
+const b64u = buf => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+const rnd = n => b64u(crypto.getRandomValues(new Uint8Array(n)));
+let TOK = ls.get("ps_tok", null);
+async function login(scelta) {
+  const ver = rnd(48), state = rnd(16);
+  const ch = b64u(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(ver)));
+  sessionStorage.setItem("ps_pkce", JSON.stringify({ ver, state, back: location.hash }));
+  const q = new URLSearchParams({ client_id: CFG.clientId, response_type: "code", redirect_uri: REDIRECT, scope: SCOPES, code_challenge: ch, code_challenge_method: "S256", state, response_mode: "query" });
+  if (scelta) q.set("prompt", "select_account");
+  location.href = `${AUTH}/authorize?${q}`;
+}
+async function tokenReq(body) {
+  const r = await fetch(`${AUTH}/token`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ client_id: CFG.clientId, scope: SCOPES, ...body }) });
+  const j = await r.json(); if (!r.ok) throw new Error(j.error_description || j.error || "accesso non riuscito");
+  TOK = { at: j.access_token, exp: Date.now() + (j.expires_in - 90) * 1000, rt: j.refresh_token || TOK?.rt, rtExp: j.refresh_token ? Date.now() + 23 * 3600e3 : TOK?.rtExp };
+  ls.set("ps_tok", TOK); return TOK.at;
+}
+async function handleRedirect() {
+  const u = new URL(location.href); const code = u.searchParams.get("code"), err = u.searchParams.get("error");
+  if (!code && !err) return false;
+  const pk = JSON.parse(sessionStorage.getItem("ps_pkce") || "null"); sessionStorage.removeItem("ps_pkce");
+  history.replaceState(null, "", REDIRECT + (pk?.back || ""));
+  if (err) throw new Error(u.searchParams.get("error_description") || err);
+  if (!pk || pk.state !== u.searchParams.get("state")) throw new Error("risposta di accesso non valida, riprova");
+  await tokenReq({ grant_type: "authorization_code", code, redirect_uri: REDIRECT, code_verifier: pk.ver });
+  return true;
+}
+let refreshing = null;
+async function token() {
+  if (TOK?.at && Date.now() < TOK.exp) return TOK.at;
+  if (TOK?.rt && Date.now() < (TOK.rtExp || 0)) {
+    refreshing = refreshing || tokenReq({ grant_type: "refresh_token", refresh_token: TOK.rt }).finally(() => refreshing = null);
+    try { return await refreshing; } catch (e) { console.warn(e); }
+  }
+  await login(false); await new Promise(() => {});   // la pagina viene ricaricata dall'accesso Microsoft
+}
+function logout() { ls.del("ps_tok"); TOK = null; location.href = `${AUTH}/logout?post_logout_redirect_uri=${encodeURIComponent(REDIRECT)}`; }
+
+/* ================= Microsoft Graph ================= */
+const G = "https://graph.microsoft.com/v1.0";
+class GErr extends Error { constructor(st, msg) { super(msg); this.status = st; } }
+async function gf(path, opt = {}, tent = 0) {
+  const at = await token();
+  const r = await fetch(path.startsWith("http") ? path : G + path, { ...opt, headers: { Authorization: "Bearer " + at, ...(opt.headers || {}) } });
+  if (r.status === 401 && tent < 1) { TOK.exp = 0; return gf(path, opt, tent + 1); }
+  if ((r.status === 429 || r.status === 503 || r.status === 504) && tent < 3) { await sleep((+r.headers.get("Retry-After") || 2) * 1000); return gf(path, opt, tent + 1); }
+  return r;
+}
+async function gj(path, opt) {
+  const r = await gf(path, opt);
+  if (!r.ok) { let m = r.statusText; try { const j = await r.json(); m = j.error?.message || m; } catch (e) {} throw new GErr(r.status, m); }
+  return r.status === 204 || r.status === 202 ? null : r.json();
+}
+const encP = s => s.split("/").map(encodeURIComponent).join("/");
+const P = parts => `/me/drive/root:/${encP([CFG.root, ...parts].join("/"))}:`;
+async function gList(parts) {
+  let url = P(parts) + "/children?$top=999&$expand=thumbnails", out = [];
+  while (url) { const j = await gj(url); out.push(...j.value); url = j["@odata.nextLink"] || null; }
+  return out;
+}
+async function gItem(parts) { try { return await gj(P(parts)); } catch (e) { if (e.status === 404) return null; throw e; } }
+async function readJSON(parts) {
+  const it = await gItem(parts); if (!it) return null;
+  const r = await fetch(it["@microsoft.graph.downloadUrl"], { cache: "no-store" });
+  if (!r.ok) throw new Error("lettura non riuscita: " + parts.join("/"));
+  const t = await r.text();
+  return { data: JSON.parse(t.replace(/^﻿/, "")), eTag: it.eTag, id: it.id };
+}
+async function putSmall(parts, body, { type = "application/octet-stream", ifMatch, conflict } = {}) {
+  const h = { "Content-Type": type }; if (ifMatch) h["If-Match"] = ifMatch;
+  return gj(P(parts) + "/content" + (conflict ? `?@microsoft.graph.conflictBehavior=${conflict}` : ""), { method: "PUT", headers: h, body });
+}
+async function writeJSON(parts, data, ifMatch, conflict) {
+  return putSmall(parts, JSON.stringify(data, null, 2), { type: "application/json", ifMatch, conflict });
+}
+async function upload(parts, file, onProg) {
+  if (file.size <= 3.8e6) { const r = await putSmall(parts, file, { type: file.type || "application/octet-stream", conflict: "rename" }); onProg?.(1); return r; }
+  const s = await gj(P(parts) + "/createUploadSession", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ item: { "@microsoft.graph.conflictBehavior": "rename" } }) });
+  const CH = 327680 * 10; let off = 0, last = null;
+  while (off < file.size) {
+    const end = Math.min(off + CH, file.size);
+    const r = await fetch(s.uploadUrl, { method: "PUT", headers: { "Content-Range": `bytes ${off}-${end - 1}/${file.size}` }, body: file.slice(off, end) });
+    if (!r.ok && r.status !== 202) throw new Error("caricamento interrotto (" + r.status + ")");
+    if (r.status === 200 || r.status === 201) last = await r.json();
+    off = end; onProg?.(off / file.size);
+  }
+  return last;
+}
+async function mkdir(parentParts, name, conflict = "fail") {
+  return gj(P(parentParts) + "/children", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, folder: {}, "@microsoft.graph.conflictBehavior": conflict }) });
+}
+const gRename = (id, name) => gj(`/me/drive/items/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) });
+const gDelete = id => gj(`/me/drive/items/${id}`, { method: "DELETE" });
+async function gCopy(srcParts, destId, name) {
+  const r = await gf(P(srcParts) + "/copy", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ parentReference: { id: destId }, name }) });
+  if (!r.ok && r.status !== 202) throw new GErr(r.status, "copia non riuscita");
+}
+
+/* ================= Dati ================= */
+const D = { prat: [], byKey: {}, exp: {}, expAgg: "", cont: { stati: {}, numeri: [], agg: "" }, prev: null, prevTag: null, caricato: false, errore: "" };
+let OV = ls.get("ps_ov", {});   // schede lette o salvate dal telefono: {key: {meta, at}}
+const salvaOV = () => { const k = Object.keys(OV); if (k.length > 300) k.sort((a, b) => (OV[a].at < OV[b].at ? -1 : 1)).slice(0, k.length - 300).forEach(x => delete OV[x]); ls.set("ps_ov", OV); };
+function parseDirName(year, name) {
+  const m = /^(\d{1,4})\s*[-_ ]\s*(\d{2})(?!\d)\s*[-_ ]?\s*(.*)$/.exec(name);
+  const legacy = /NOLAVORO/i.test(name) ? "non_eseguita" : /CONCLUSO\s*e\s*PAGATO/i.test(name) ? "pagata" : /CONCLUSO/i.test(name) ? "conclusa" : /PAGATO/i.test(name) ? "pagata" : "";
+  if (!m) return { anno: +year, num: 0, codice: "", dir: name, key: `${year}/${name}`, cat: catOf(name), legacy };
+  return { anno: +year, num: +m[1], codice: `${+m[1]}-${m[2]}`, dir: name, key: `${year}/${name}`, cat: catOf(name), legacy };
+}
+function baseMeta(p) {
+  const e = D.exp[p.key]; if (!e) return {};
+  if (e.meta) return { ...e.meta };
+  return { committente: e.cliente, comune: e.comune, indirizzo: e.indirizzo, canale: e.canale, tipo: e.tipo, stato: e.stato, statoAgg: e.statoAgg, compenso: e.compenso || "", notaBreve: e.nota || "", telefono: e.telefono || "", email: e.email || "" };
+}
+function metaOf(p) {
+  const o = OV[p.key], b = baseMeta(p);
+  if (o && (!D.expAgg || o.at > D.expAgg || !Object.keys(b).length)) return o.meta;
+  return b;
+}
+function statoOf(p) {
+  const m = metaOf(p), own = normStato(m.stato), cont = D.cont.stati[String(p.codice).toLowerCase()];
+  if (own && m.statoAgg && (!D.cont.agg || m.statoAgg > D.cont.agg)) return own;
+  return cont || own || p.legacy || "";
+}
+function cognome(m) { return String(m.committente || "").trim().split(/\s+/)[0] || ""; }
+async function caricaTutto(silenzioso) {
+  const cache = ls.get("ps_cache", null);
+  if (cache && !D.caricato) { applica(cache); }
+  try {
+    const [anni, exp, cont] = await Promise.all([gList([]), readJSON(["_pratiche_per_contabilita.json"]).catch(() => null), readJSON(["_sync", "numeri_contabilita.json"]).catch(() => null)]);
+    const yrs = anni.filter(x => x.folder && /^(19|20)\d{2}$/.test(x.name)).map(x => x.name);
+    if (!yrs.length) throw new Error(`nella cartella «${CFG.root}» di OneDrive non trovo le cartelle degli anni`);
+    const dirs = await Promise.all(yrs.map(async y => (await gList([y])).filter(x => x.folder).map(x => [y, x.name])));
+    const pack = { dirs: dirs.flat(), exp: exp?.data || null, cont: cont?.data || null, at: new Date().toISOString() };
+    ls.set("ps_cache", pack); applica(pack); D.errore = "";
+  } catch (e) { console.error(e); D.errore = e.message; if (!silenzioso) toast("Non riesco a leggere OneDrive: " + e.message, true); }
+  D.caricato = true;
+}
+function applica(pack) {
+  D.exp = {}; D.expAgg = pack.exp?.aggiornato || "";
+  for (const e of pack.exp?.pratiche || []) { const m = /\\(\d{4})\\([^\\]+)$/.exec(e.cartella || ""); if (m) D.exp[`${m[1]}/${m[2]}`] = e; }
+  const c = pack.cont || {}; D.cont = { stati: c.stati || {}, numeri: c.numeri || [], agg: c.aggiornatoUTC || (c.aggiornato ? new Date(c.aggiornato).toISOString() : "") };
+  D.prat = pack.dirs.map(([y, n]) => parseDirName(y, n)).sort((a, b) => b.anno - a.anno || b.num - a.num || natCmp(a.dir, b.dir));
+  D.byKey = Object.fromEntries(D.prat.map(p => [p.key, p]));
+}
+function nextNumero(anno) {
+  let mx = 0; for (const p of D.prat) if (p.anno === anno && p.num > mx) mx = p.num;
+  const yy = String(anno).slice(2);
+  for (const n of D.cont.numeri) { const m = /^(\d+)-(\d{2})$/.exec(n); if (m && m[2] === yy && +m[1] > mx) mx = +m[1]; }
+  return mx + 1;
+}
+
+/* ---------- scheda della pratica (_pratica.json) ---------- */
+async function leggiMeta(p) {
+  const r = await readJSON([String(p.anno), p.dir, "_pratica.json"]);
+  const meta = r ? r.data : baseMeta(p);
+  OV[p.key] = { meta, at: new Date().toISOString() }; salvaOV();
+  return meta;
+}
+function diarioPush(m, ev, tipo, extra) { m.diario = [...(m.diario || []), { t: new Date().toISOString(), ev, tipo, ...(extra || {}) }].slice(-500); }
+function diarioUnisci(m, tipo, ev, minuti) {
+  const L = m.diario || [], last = L[L.length - 1];
+  if (last && last.tipo === tipo && Date.now() - Date.parse(last.t) < minuti * 60e3) { m.diario = [...L.slice(0, -1), { ...last, ev, t: new Date().toISOString() }]; return; }
+  diarioPush(m, ev, tipo);
+}
+/* modifica sicura: rilegge il file, applica la modifica e salva solo se nessun altro l'ha cambiato nel frattempo */
+async function modificaMeta(p, fn) {
+  const parts = [String(p.anno), p.dir, "_pratica.json"];
+  for (let t = 0; t < 4; t++) {
+    const r = await readJSON(parts);
+    const m = r ? JSON.parse(JSON.stringify(r.data)) : baseMeta(p);
+    delete m._fromScheda;
+    if (!m.codice && p.codice) m.codice = p.codice; if (!m.anno) m.anno = p.anno;
+    fn(m); m.aggiornato = new Date().toISOString();
+    try {
+      await writeJSON(parts, m, r ? r.eTag : null, r ? null : "fail");
+      OV[p.key] = { meta: m, at: m.aggiornato }; salvaOV(); return m;
+    } catch (e) { if (e.status === 412 || e.status === 409) { await sleep(400); continue; } throw e; }
+  }
+  throw new Error("la scheda è stata modificata altrove proprio ora: riprova");
+}
+const logPratica = (p, ev, tipo, extra) => modificaMeta(p, m => diarioPush(m, ev + " (dal telefono)", tipo, extra)).catch(e => console.warn("diario", e));
+
+/* ---------- preventivi (_Preventivi/_preventivi.json) ---------- */
+const PREV_P = ["_Preventivi", "_preventivi.json"];
+const PREV_ST = { attesa: ["In attesa", "#d97706"], accettato: ["Accettato", "#059669"], rifiutato: ["Rifiutato", "#c0362c"] };
+async function prevCarica() { const r = await readJSON(PREV_P); D.prev = r?.data?.preventivi || []; D.prevTag = r?.eTag || null; return D.prev; }
+async function prevModifica(fn) {
+  for (let t = 0; t < 4; t++) {
+    const r = await readJSON(PREV_P); const L = r?.data?.preventivi || [];
+    fn(L);
+    try { await writeJSON(PREV_P, { app: "Pratiche Studio", aggiornato: new Date().toISOString(), preventivi: L }, r?.eTag, r ? null : "fail"); D.prev = L; return L; }
+    catch (e) { if (e.status === 412 || e.status === 409) { await sleep(400); continue; } throw e; }
+  }
+  throw new Error("l'elenco preventivi è stato modificato altrove: riprova");
+}
+function prevNumero(L, anno) { const yy = String(anno).slice(2); let mx = 0; L.forEach(x => { const m = /^P(\d+)-(\d{2})$/.exec(x.numero || ""); if (m && m[2] === yy && +m[1] > mx) mx = +m[1]; }); return `P${mx + 1}-${yy}`; }
+
+/* ================= Interfaccia ================= */
+const UI = ls.get("ps_ui", { filtro: "aperte", q: "", anno: "" });
+const salvaUI = () => ls.set("ps_ui", { filtro: UI.filtro, q: UI.q, anno: UI.anno });
+const app = () => $("#app");
+function sheet(title, html, onMount) {
+  const bg = document.createElement("div"); bg.className = "sheet-bg";
+  bg.innerHTML = `<div class="sheet">${title ? `<h2>${esc(title)}</h2>` : ""}${html}</div>`;
+  document.body.appendChild(bg);
+  const close = () => bg.remove();
+  bg.addEventListener("click", e => { if (e.target === bg) close(); });
+  onMount?.(bg, close); return close;
+}
+function chiedi(title, label, val, okLab = "OK") {
+  return new Promise(res => {
+    sheet(title, `<div class="f"><label>${esc(label)}</label><input id="ch-v" value="${esc(val || "")}"></div><div class="row2"><button class="btn" data-n>Annulla</button><button class="btn pri" data-y>${esc(okLab)}</button></div>`, (bg, close) => {
+      const i = $("#ch-v", bg); setTimeout(() => { i.focus(); const d = i.value.lastIndexOf("."); i.setSelectionRange(0, d > 0 ? d : i.value.length); }, 50);
+      const fine = v => { close(); res(v); };
+      $("[data-n]", bg).onclick = () => fine(null); $("[data-y]", bg).onclick = () => fine(i.value.trim());
+      i.onkeydown = e => { if (e.key === "Enter") fine(i.value.trim()); };
+    });
+  });
+}
+function conferma(title, txt, okLab = "Conferma", bad) {
+  return new Promise(res => sheet(title, `<p style="margin:0 4px 14px">${txt}</p><div class="row2"><button class="btn" data-n>Annulla</button><button class="btn ${bad ? "bad" : "pri"}" data-y>${esc(okLab)}</button></div>`, (bg, close) => {
+    $("[data-n]", bg).onclick = () => { close(); res(false); }; $("[data-y]", bg).onclick = () => { close(); res(true); };
+  }));
+}
+function tabbar(on) {
+  return `<nav class="tabbar"><button data-go="#/" class="${on === "p" ? "on" : ""}">${I.list}Pratiche</button>
+    <button data-go="#/nuova" class="plus"><span class="pl">${I.plus}</span>Nuova</button>
+    <button data-go="#/preventivi" class="${on === "v" ? "on" : ""}">${I.euro}Preventivi</button></nav>`;
+}
+function wireTabbar() { $$("[data-go]").forEach(b => b.onclick = () => { location.hash = b.dataset.go; }); }
+
+/* ---------- configurazione e accesso ---------- */
+function viewSetup() {
+  app().innerHTML = `<div class="center"><div class="login" style="text-align:left">
+    <div class="logo">PS</div><h1 style="text-align:center">Configura Pratiche Studio</h1>
+    <p>Incolla l'<b>ID applicazione (client)</b> che hai copiato dalla registrazione dell'app su Microsoft Azure.</p>
+    <div class="f"><label>ID applicazione (client)</label><input id="s-id" placeholder="es. 1a2b3c4d-…" value="${esc(CFG.clientId)}" autocapitalize="off" autocorrect="off"></div>
+    <div class="f"><label>Cartella delle pratiche su OneDrive</label><input id="s-root" value="${esc(CFG.root)}"></div>
+    <p class="hint">Nella registrazione l'indirizzo di reindirizzamento (piattaforma <b>Applicazione a pagina singola</b>) deve essere esattamente:<br><code>${esc(REDIRECT)}</code></p>
+    <button class="btn pri full" id="s-ok">Salva e accedi</button></div></div>`;
+  $("#s-ok").onclick = () => {
+    const id = $("#s-id").value.trim(); if (!/^[0-9a-f-]{36}$/i.test(id)) return toast("L'ID deve essere tipo 1a2b3c4d-5e6f-…", true);
+    ls.set("ps_client", id); ls.set("ps_root", $("#s-root").value.trim().replace(/^[\\/]+|[\\/]+$/g, "") || "Lavoro"); login(true);
+  };
+}
+function viewLogin(msg) {
+  app().innerHTML = `<div class="center"><div class="login"><div class="logo">PS</div><h1>Pratiche Studio</h1>
+    <p>Accedi con l'account Microsoft del tuo OneDrive per vedere e aggiornare le pratiche della cartella <b>${esc(CFG.root)}</b>.</p>
+    ${msg ? `<div class="warn" style="text-align:left">${esc(msg)}</div>` : ""}
+    <button class="btn pri full" id="l-go">Accedi con Microsoft</button>
+    <p style="margin-top:16px"><a href="#" id="l-set" class="hint">Impostazioni</a></p></div></div>`;
+  $("#l-go").onclick = () => login(true);
+  $("#l-set").onclick = e => { e.preventDefault(); viewSetup(); };
+}
+
+/* ---------- elenco pratiche ---------- */
+let listaN = 60;
+function viewLista() {
+  const anni = [...new Set(D.prat.map(p => p.anno))];
+  app().innerHTML = `<header class="hdr"><div class="row"><h1>Pratiche</h1><button class="ib" id="l-ref" title="Aggiorna">${I.ref}</button><button class="ib" id="l-cfg" title="Impostazioni">${I.cog}</button></div>
+      <div class="search"><input type="search" id="l-q" placeholder="Cerca numero, cliente, comune, via…" value="${esc(UI.q)}" enterkeyhint="search"></div></header>
+    <div class="chips" id="l-f">${[["aperte", "Aperte"], ["dapagare", "Da pagare"], ["tutte", "Tutte"]].map(([k, l]) => `<button class="chip ${UI.filtro === k ? "on" : ""}" data-f="${k}">${l}</button>`).join("")}
+      ${anni.map(a => `<button class="chip ${String(UI.anno) === String(a) ? "on" : ""}" data-a="${a}">${a}</button>`).join("")}</div>
+    <main><div id="l-err"></div><div class="list" id="l-l"></div><div class="more" id="l-more"></div></main>${tabbar("p")}`;
+  wireTabbar();
+  let t; $("#l-q").oninput = e => { clearTimeout(t); t = setTimeout(() => { UI.q = e.target.value; salvaUI(); listaN = 60; disegnaLista(); }, 120); };
+  $$("#l-f [data-f]").forEach(b => b.onclick = () => { UI.filtro = b.dataset.f; salvaUI(); listaN = 60; viewLista(); });
+  $$("#l-f [data-a]").forEach(b => b.onclick = () => { UI.anno = String(UI.anno) === b.dataset.a ? "" : b.dataset.a; salvaUI(); listaN = 60; viewLista(); });
+  $("#l-ref").onclick = async () => { $("#l-ref").innerHTML = `<span class="spin"></span>`; await caricaTutto(); viewLista(); toast("Elenco aggiornato da OneDrive"); };
+  $("#l-cfg").onclick = impostazioni;
+  disegnaLista();
+}
+function filtrate() {
+  const toks = norm(UI.q).split(/\s+/).filter(Boolean);
+  return D.prat.filter(p => {
+    if (UI.anno && String(p.anno) !== String(UI.anno)) return false;
+    const st = statoOf(p);
+    if (UI.filtro === "aperte" && ST_CHIUSI.includes(st)) return false;
+    if (UI.filtro === "dapagare" && !ST_DAPAGARE.includes(st)) return false;
+    if (!toks.length) return true;
+    const m = metaOf(p); const h = norm([p.codice, p.dir, m.committente, m.comune, m.indirizzo, m.tipo, m.canale, m.notaBreve].join(" "));
+    return toks.every(k => h.includes(k));
+  });
+}
+function rigaPratica(p) {
+  const m = metaOf(p), st = statoOf(p);
+  const tit = m.committente ? titleCase(m.committente) : p.dir.replace(/^\d+-\d+_?/, "").replace(/[-_]+/g, " ");
+  const sub = [m.tipo, [m.indirizzo, m.comune].filter(Boolean).map(titleCase).join(", ")].filter(Boolean).join(" · ") || p.dir;
+  return `<div class="pr" data-k="${esc(p.key)}"><span class="cod" style="--cc:${CATCOL[p.cat] || CATCOL.altro}">${esc(p.codice || "—")}</span>
+    <div class="tx"><b>${esc(tit)}</b><small>${esc(sub)}</small>${m.notaBreve ? `<small>✎ ${esc(m.notaBreve)}</small>` : ""}</div>
+    ${st ? `<span class="st" style="--sc:${ST_COL[st] || "#94a3b8"}">${esc(STATI_BREVI[st] || st)}</span>` : ""}</div>`;
+}
+function disegnaLista() {
+  const L = filtrate(), el = $("#l-l"); if (!el) return;
+  $("#l-err").innerHTML = D.errore ? `<div class="warn">${esc(D.errore)}</div>` : "";
+  if (!D.prat.length) { el.innerHTML = `<div class="empty">${D.caricato ? "Nessuna pratica trovata" : `<span class="spin"></span> Leggo le pratiche da OneDrive…`}</div>`; $("#l-more").textContent = ""; return; }
+  el.innerHTML = L.slice(0, listaN).map(rigaPratica).join("") || `<div class="empty">Nessuna pratica con questi filtri</div>`;
+  $$(".pr", el).forEach(r => r.onclick = () => { location.hash = "#/p/" + encodeURIComponent(r.dataset.k); });
+  const more = $("#l-more");
+  if (L.length > listaN) { more.textContent = `Altre ${L.length - listaN}…`; new IntersectionObserver((en, o) => { if (en[0].isIntersecting) { o.disconnect(); listaN += 80; disegnaLista(); } }).observe(more); }
+  else more.textContent = L.length ? `${L.length} pratiche` : "";
+}
+function impostazioni() {
+  sheet("Impostazioni", `<p class="hint" style="margin:0 4px 10px">Cartella su OneDrive: <b>${esc(CFG.root)}</b><br>Indirizzo dell'app: <code>${esc(REDIRECT)}</code></p>
+    <button class="opt" data-a="cfg">${I.cog}Cambia ID applicazione o cartella</button>
+    <button class="opt bad" data-a="out">${I.ext}Esci dall'account Microsoft</button>`, (bg, close) => {
+    $("[data-a=cfg]", bg).onclick = () => { close(); viewSetup(); };
+    $("[data-a=out]", bg).onclick = () => { close(); logout(); };
+  });
+}
+
+/* ---------- pratica ---------- */
+let PCUR = { key: "", tab: "doc", sub: [], meta: null, files: null, filesAt: 0 };
+async function viewPratica(key, tab) {
+  const p = D.byKey[key];
+  if (!p) { app().innerHTML = `<div class="empty" style="padding-top:80px">Pratica non trovata.<br><br><a href="#/">Torna all'elenco</a></div>`; return; }
+  if (PCUR.key !== key) PCUR = { key, tab: tab || PCUR.tab || "doc", sub: [], meta: null, files: null, filesAt: 0 };
+  const m = metaOf(p);
+  disegnaPratica(p, m);
+  try { PCUR.meta = await leggiMeta(p); if (PCUR.key === key) disegnaPratica(p, PCUR.meta); }
+  catch (e) { toast("Non riesco a leggere la scheda: " + e.message, true); }
+}
+function disegnaPratica(p, m) {
+  const st = statoOf(p);
+  const tel = String(m.telefono || "").replace(/[^\d+]/g, ""), wa = tel ? (tel.startsWith("+") ? tel.slice(1) : tel.startsWith("00") ? tel.slice(2) : "39" + tel) : "";
+  const dove = [m.indirizzo, m.comune, m.provincia].filter(Boolean).join(", ");
+  app().innerHTML = `<header class="hdr"><div class="row"><button class="ib" id="p-back">${I.back}</button><div style="flex:1;min-width:0"><h1>Pratica ${esc(p.codice || p.dir)}</h1>
+      <div class="sub">${esc([m.committente && titleCase(m.committente), m.tipo].filter(Boolean).join(" · ") || p.dir)}</div></div></div>
+    <div class="acts"><a class="act ${tel ? "" : "off"}" href="tel:${esc(tel)}">${I.phone}Chiama</a><a class="act ${wa ? "" : "off"}" href="https://wa.me/${esc(wa)}" target="_blank" rel="noopener">${I.chat}WhatsApp</a>
+      <a class="act ${m.email ? "" : "off"}" href="mailto:${esc(m.email || "")}">${I.mail}E-mail</a><a class="act ${dove ? "" : "off"}" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(dove)}" target="_blank" rel="noopener">${I.map}Mappa</a></div></header>
+    <main>
+      <div class="card"><div class="stbar"><span class="dot" id="p-dot" style="background:${ST_COL[st] || "#94a3b8"}"></span>
+        <select id="p-st" class="f" style="margin:0;border:1px solid var(--line);background:var(--panel2);border-radius:11px;padding:10px;font-size:16px">${Object.entries(STATI).map(([k, l]) => `<option value="${k}" ${st === k ? "selected" : ""}>${esc(l)}</option>`).join("")}${st ? "" : `<option value="" selected>Imposta stato…</option>`}</select></div>
+        <div class="f" style="margin:10px 0 0"><input id="p-nt" placeholder="Nota: es. inviata in Comune il 12/10 – prot. 12345" value="${esc(m.notaBreve || "")}"></div><div class="ok" id="p-ok"></div></div>
+      <div class="seg" id="p-tabs">${[["doc", "Documenti"], ["dati", "Dati"], ["diario", "Diario"]].map(([k, l]) => `<button data-t="${k}" class="${PCUR.tab === k ? "on" : ""}">${l}</button>`).join("")}</div>
+      <div id="p-body"></div></main>${tabbar("p")}`;
+  wireTabbar();
+  $("#p-back").onclick = () => { if (history.length > 1 && document.referrer !== "x") history.back(); else location.hash = "#/"; };
+  const ok = t => { const o = $("#p-ok"); if (o) { o.textContent = t; setTimeout(() => { if (o.textContent === t) o.textContent = ""; }, 3500); } };
+  $("#p-st").onchange = async e => {
+    const v = e.target.value; ok("Salvo…");
+    try { PCUR.meta = await modificaMeta(p, mm => { mm.stato = v; mm.statoAgg = new Date().toISOString(); diarioPush(mm, "Stato: " + (STATI[v] || v) + " (dal telefono)", "stato", { st: v }); });
+      $("#p-dot").style.background = ST_COL[v] || "#94a3b8"; ok("✓ Stato salvato · va in Contabilità alla prossima sincronizzazione"); if (PCUR.tab === "diario") disegnaTab(p); }
+    catch (er) { ok(""); toast("Non salvato: " + er.message, true); }
+  };
+  let nt;
+  const salvaNota = async () => {
+    const v = $("#p-nt").value.trim(); ok("Salvo…");
+    try { PCUR.meta = await modificaMeta(p, mm => { mm.notaBreve = v; mm.notaAgg = new Date().toISOString(); diarioUnisci(mm, "nota", v ? "Nota: " + v : "Nota cancellata", 30); }); ok("✓ Nota salvata"); }
+    catch (er) { ok(""); toast("Nota non salvata: " + er.message, true); }
+  };
+  $("#p-nt").oninput = () => { clearTimeout(nt); nt = setTimeout(salvaNota, 1200); };
+  $("#p-nt").onkeydown = e => { if (e.key === "Enter") { clearTimeout(nt); salvaNota(); e.target.blur(); } };
+  $$("#p-tabs button").forEach(b => b.onclick = () => { PCUR.tab = b.dataset.t; $$("#p-tabs button").forEach(x => x.classList.toggle("on", x === b)); disegnaTab(p); });
+  disegnaTab(p);
+}
+function disegnaTab(p) {
+  const body = $("#p-body"); if (!body) return;
+  if (PCUR.tab === "dati") return tabDati(p, body);
+  if (PCUR.tab === "diario") return tabDiario(p, body);
+  return tabDoc(p, body);
+}
+
+/* documenti */
+const ICON_EXT = { pdf: ["PDF", "#dc2626"], p7m: ["P7M", "#be123c"], doc: ["DOC", "#2563eb"], docx: ["DOC", "#2563eb"], xls: ["XLS", "#15803d"], xlsx: ["XLS", "#15803d"], dwg: ["DWG", "#b45309"], dxf: ["DXF", "#b45309"], jpg: ["JPG", "#7c3aed"], jpeg: ["JPG", "#7c3aed"], png: ["PNG", "#7c3aed"], heic: ["HEIC", "#7c3aed"], zip: ["ZIP", "#475569"], xml: ["XML", "#0d9488"], txt: ["TXT", "#64748b"], msg: ["MSG", "#0369a1"], eml: ["EML", "#0369a1"] };
+const extOf = n => { const m = /\.([^.]+)$/.exec(n); return m ? m[1].toLowerCase() : ""; };
+const apribile = n => /\.(pdf|jpe?g|png|gif|webp|heic|txt|mp4|mov)$/i.test(n);
+async function tabDoc(p, body) {
+  const parts = [String(p.anno), p.dir, ...PCUR.sub];
+  const crumbs = [`<a href="#" data-c="0">${esc(p.codice || "Pratica")}</a>`, ...PCUR.sub.map((s, i) => `<a href="#" data-c="${i + 1}">${esc(s)}</a>`)].join(" › ");
+  body.innerHTML = `<div class="crumbs">${crumbs}</div>
+    <div class="up"><label class="btn gold">${I.cam}Scatta foto<input type="file" accept="image/*" capture="environment" id="d-cam" hidden></label>
+      <label class="btn">${I.up}Carica file<input type="file" multiple id="d-up" hidden></label></div>
+    <div id="d-prog"></div><div class="fl" id="d-l"><div class="empty"><span class="spin"></span> Carico i file…</div></div>
+    <div class="row2" style="margin-top:10px"><button class="btn" id="d-new">${I.fold}Nuova cartella</button><button class="btn" id="d-ref">${I.ref}Aggiorna</button></div>`;
+  $$("[data-c]", body).forEach(a => a.onclick = e => { e.preventDefault(); PCUR.sub = PCUR.sub.slice(0, +a.dataset.c); PCUR.files = null; tabDoc(p, body); });
+  $("#d-ref", body).onclick = () => { PCUR.files = null; tabDoc(p, body); };
+  $("#d-new", body).onclick = async () => {
+    const n = safeName(await chiedi("Nuova cartella", "Nome della cartella", "", "Crea")); if (!n) return;
+    try { await mkdir(parts, n); logPratica(p, `Cartella creata: ${[...PCUR.sub, n].join(" / ")}`, "file"); PCUR.files = null; tabDoc(p, body); toast("Cartella creata"); }
+    catch (e) { toast(e.status === 409 ? "Esiste già una cartella con questo nome" : "Errore: " + e.message, true); }
+  };
+  const caricaFiles = async (files, foto) => {
+    const prog = $("#d-prog", body); const nomi = [];
+    for (let i = 0; i < files.length; i++) {
+      let f = files[i], nome = safeName(f.name) || "file";
+      if (foto || /^image\.(jpe?g|heic|png)$/i.test(nome)) { const d = new Date(), pad = x => String(x).padStart(2, "0"); nome = `Foto_${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}${files.length > 1 ? "_" + (i + 1) : ""}.${extOf(nome) || "jpg"}`; }
+      prog.innerHTML = `<div class="hint">Carico ${esc(nome)} (${i + 1}/${files.length}) · ${fmtSize(f.size)}</div><div class="prog"><i id="d-pi"></i></div>`;
+      try { const r = await upload([...parts, nome], f, x => { const b = $("#d-pi"); if (b) b.style.width = Math.round(x * 100) + "%"; }); nomi.push(r?.name || nome); }
+      catch (e) { toast(`Non caricato ${nome}: ${e.message}`, true); }
+    }
+    prog.innerHTML = "";
+    if (nomi.length) { toast(nomi.length === 1 ? `Caricato ${nomi[0]}` : `Caricati ${nomi.length} file`); logPratica(p, `Caricat${nomi.length === 1 ? "o" : "i"}: ${nomi.join(", ")}${PCUR.sub.length ? " in " + PCUR.sub.join(" / ") : ""}`, "upload"); PCUR.files = null; tabDoc(p, body); }
+  };
+  $("#d-cam", body).onchange = e => { const f = [...e.target.files]; e.target.value = ""; if (f.length) caricaFiles(f, true); };
+  $("#d-up", body).onchange = e => { const f = [...e.target.files]; e.target.value = ""; if (f.length) caricaFiles(f, false); };
+  try {
+    if (!PCUR.files || Date.now() - PCUR.filesAt > 45 * 60e3 || PCUR.filesFor !== parts.join("/")) { PCUR.files = await gList(parts); PCUR.filesAt = Date.now(); PCUR.filesFor = parts.join("/"); }
+  } catch (e) { $("#d-l", body).innerHTML = `<div class="empty">${e.status === 404 ? "Cartella non trovata su OneDrive" : "Errore: " + esc(e.message)}</div>`; return; }
+  const L = PCUR.files.filter(x => !/^(desktop\.ini|_pratica\.json|thumbs\.db)$/i.test(x.name) && !x.name.startsWith("~$")).sort((a, b) => (!!b.folder - !!a.folder) || natCmp(a.name, b.name));
+  const el = $("#d-l", body);
+  el.innerHTML = L.length ? L.map((x, i) => {
+    const th = x.thumbnails?.[0]?.small?.url || x.thumbnails?.[0]?.medium?.url;
+    const [lab, col] = ICON_EXT[extOf(x.name.replace(/\.p7m$/i, "") || x.name)] || ICON_EXT[extOf(x.name)] || [extOf(x.name).slice(0, 4).toUpperCase() || "FILE", "#64748b"];
+    const icon = x.folder ? `<span class="ic dir">${I.list.replace('stroke="currentColor"', 'stroke="#fff"')}</span>` : th && !/\.pdf$/i.test(x.name) ? `<span class="ic" style="background-image:url('${esc(th)}')"></span>` : `<span class="ic" style="background:${col}">${esc(lab)}</span>`;
+    const info = x.folder ? `${x.folder.childCount ?? ""} elementi` : `${fmtSize(x.size)} · ${dataIt(x.lastModifiedDateTime)}`;
+    const href = x.folder ? "#" : apribile(x.name) ? x["@microsoft.graph.downloadUrl"] : x.webUrl;
+    return `<a class="fi" data-i="${i}" href="${esc(href || "#")}" ${x.folder ? "" : 'target="_blank" rel="noopener"'}>${icon}<span class="tx"><b>${esc(x.name)}</b><small>${esc(info)}</small></span><button class="mn" data-m="${i}">⋯</button></a>`;
+  }).join("") : `<div class="empty">Cartella vuota</div>`;
+  $$(".fi", el).forEach(a => a.onclick = e => {
+    const x = L[+a.dataset.i];
+    if (e.target.closest("[data-m]")) { e.preventDefault(); return menuFile(p, x, body); }
+    if (x.folder) { e.preventDefault(); PCUR.sub = [...PCUR.sub, x.name]; PCUR.files = null; tabDoc(p, body); }
+  });
+}
+function menuFile(p, x, body) {
+  sheet(x.name, `${x.folder ? "" : `<a class="opt" href="${esc(x["@microsoft.graph.downloadUrl"] || "#")}" target="_blank" rel="noopener">${I.eye}Apri / scarica</a>`}
+    <a class="opt" href="${esc(x.webUrl)}" target="_blank" rel="noopener">${I.ext}Apri in OneDrive</a>
+    ${navigator.share && !x.folder ? `<button class="opt" data-a="sh">${I.up}Condividi…</button>` : ""}
+    <button class="opt" data-a="ren">${I.edit}Rinomina</button>
+    <button class="opt bad" data-a="del">${I.trash}Elimina</button>`, (bg, close) => {
+    $$("a.opt", bg).forEach(a => a.addEventListener("click", () => setTimeout(close, 50)));
+    const sh = $("[data-a=sh]", bg); if (sh) sh.onclick = async () => {
+      close();
+      try { toast("Preparo il file…"); const b = await (await fetch(x["@microsoft.graph.downloadUrl"])).blob(); const f = new File([b], x.name, { type: b.type || x.file?.mimeType || "application/octet-stream" });
+        if (navigator.canShare && navigator.canShare({ files: [f] })) await navigator.share({ files: [f], title: x.name }); else await navigator.share({ title: x.name, url: x.webUrl }); }
+      catch (e) { if (e.name !== "AbortError") toast("Condivisione non riuscita: " + e.message, true); }
+    };
+    $("[data-a=ren]", bg).onclick = async () => {
+      close(); const n = safeName(await chiedi("Rinomina", "Nuovo nome", x.name, "Rinomina")); if (!n || n === x.name) return;
+      try { await gRename(x.id, n); logPratica(p, `Rinominato: ${x.name} → ${n}`, "ren"); PCUR.files = null; tabDoc(p, body); toast("Rinominato"); }
+      catch (e) { toast(e.status === 409 ? "Esiste già un file con questo nome" : "Errore: " + e.message, true); }
+    };
+    $("[data-a=del]", bg).onclick = async () => {
+      close(); if (!(await conferma("Elimina", `Eliminare <b>${esc(x.name)}</b>? Resta recuperabile dal Cestino di OneDrive per 30 giorni.`, "Elimina", true))) return;
+      try { await gDelete(x.id); logPratica(p, `Eliminato: ${x.name}`, "del"); PCUR.files = null; tabDoc(p, body); toast("Eliminato"); }
+      catch (e) { toast("Errore: " + e.message, true); }
+    };
+  });
+}
+
+/* dati */
+const CAMPI = [["committente", "Committente (cognome e nome)"], ["telefono", "Telefono", "tel"], ["email", "E-mail", "email"], ["cf", "Codice fiscale / P.IVA"], ["canale", "Canale / agenzia"], ["compenso", "Compenso concordato €", "decimal"],
+  ["indirizzo", "Indirizzo"], ["comune", "Comune"], ["provincia", "Prov."], ["foglio", "Foglio"], ["mappale", "Mappale"], ["sub", "Sub."], ["categoria", "Categoria"], ["piano", "Piano / interno"],
+  ["residenza", "Residenza"], ["nascitaLuogo", "Luogo di nascita"], ["nascitaData", "Data di nascita", "date"], ["descrizione", "Descrizione lavori", "area"], ["note", "Note", "area"]];
+function tabDati(p, body) {
+  const m = PCUR.meta || metaOf(p);
+  const righe = CAMPI.filter(([k]) => m[k]).map(([k, l]) => `<dt>${esc(l.replace(/ \(.*\)/, ""))}</dt><dd>${k === "compenso" ? eur(num(m[k])) : k === "nascitaData" ? esc(dataIt(m[k])) : esc(m[k]).replace(/\n/g, "<br>")}</dd>`).join("");
+  body.innerHTML = `<div class="card">${righe ? `<dl class="kv">${m.tipo ? `<dt>Tipo</dt><dd>${esc(m.tipo)}</dd>` : ""}${righe}${m.dataApertura ? `<dt>Aperta il</dt><dd>${esc(dataIt(m.dataApertura))}</dd>` : ""}</dl>` : `<div class="empty" style="padding:16px">Nessun dato nella scheda</div>`}</div>
+    <button class="btn pri full" id="dt-ed">${I.edit}Modifica dati</button>`;
+  $("#dt-ed", body).onclick = () => {
+    body.innerHTML = `<div class="card"><div class="f"><label>Tipo pratica</label><select id="dt-tipo"><option value="">—</option>${TIPI.map(([l]) => `<option ${m.tipo === l ? "selected" : ""}>${esc(l)}</option>`).join("")}${m.tipo && !TIPI.some(t => t[0] === m.tipo) ? `<option selected>${esc(m.tipo)}</option>` : ""}</select></div>
+      ${CAMPI.map(([k, l, t]) => `<div class="f"><label>${esc(l)}</label>${t === "area" ? `<textarea name="${k}" rows="3">${esc(m[k] || "")}</textarea>` : `<input name="${k}" value="${esc(m[k] || "")}" ${t === "tel" ? 'type="tel"' : t === "email" ? 'type="email" autocapitalize="off"' : t === "date" ? 'type="date"' : t === "decimal" ? 'inputmode="decimal"' : ""}>`}</div>`).join("")}</div>
+      <div class="row2"><button class="btn" id="dt-no">Annulla</button><button class="btn pri" id="dt-ok">${I.ok}Salva</button></div>`;
+    $("#dt-no", body).onclick = () => tabDati(p, body);
+    $("#dt-ok", body).onclick = async () => {
+      const b = $("#dt-ok", body); b.disabled = true; b.innerHTML = `<span class="spin"></span> Salvo…`;
+      const nuovi = { tipo: $("#dt-tipo", body).value }; $$("[name]", body).forEach(i => nuovi[i.name] = i.value.trim());
+      if (nuovi.cf) nuovi.cf = nuovi.cf.toUpperCase(); if (nuovi.provincia) nuovi.provincia = nuovi.provincia.toUpperCase();
+      try {
+        PCUR.meta = await modificaMeta(p, mm => {
+          const camb = [];
+          for (const [k, v] of Object.entries(nuovi)) { if ((mm[k] || "") !== v) { camb.push(k === "tipo" ? "Tipo" : (CAMPI.find(c => c[0] === k)?.[1] || k).replace(/ \(.*\)| €/g, "")); if (v) mm[k] = v; else delete mm[k]; } }
+          if (camb.includes("Compenso concordato")) { mm.compensoAgg = new Date().toISOString(); if (num(mm.compenso)) diarioPush(mm, "Compenso concordato: " + eur(num(mm.compenso)) + " (dal telefono)", "euro"); }
+          const altri = camb.filter(c => c !== "Compenso concordato"); if (altri.length) diarioUnisci(mm, "dati", "Dati aggiornati dal telefono: " + altri.join(", "), 10);
+        });
+        toast("Dati salvati"); disegnaPratica(p, PCUR.meta); PCUR.tab = "dati";
+      } catch (e) { toast("Non salvato: " + e.message, true); b.disabled = false; b.innerHTML = `${I.ok}Salva`; }
+    };
+  };
+}
+
+/* diario */
+function tabDiario(p, body) {
+  const m = PCUR.meta || metaOf(p);
+  const ev = [...(m.diario || [])].sort((a, b) => (a.t < b.t ? 1 : -1));
+  body.innerHTML = `<div class="card"><div class="f" style="margin-bottom:8px"><textarea id="di-t" rows="2" placeholder="Aggiungi una nota al diario (telefonata, sopralluogo, accordi…)"></textarea></div>
+      <button class="btn pri full" id="di-ok">${I.plus}Aggiungi al diario</button></div>
+    <div class="card"><div class="dia">${ev.length ? ev.map(e => `<div class="de"><i>${DIARIO_IC[e.tipo] || "•"}</i><div><div>${esc(e.ev)}</div><small>${esc(dataOra(e.t))}</small></div></div>`).join("") : `<div class="empty" style="padding:16px">Diario vuoto</div>`}</div></div>`;
+  $("#di-ok", body).onclick = async () => {
+    const t = $("#di-t", body).value.trim(); if (!t) return;
+    const b = $("#di-ok", body); b.disabled = true;
+    try { PCUR.meta = await modificaMeta(p, mm => diarioPush(mm, t, "manuale")); toast("Aggiunto al diario"); tabDiario(p, body); }
+    catch (e) { toast("Non salvato: " + e.message, true); b.disabled = false; }
+  };
+}
+
+/* ---------- nuova pratica ---------- */
+let NUOVA_PREF = null;
+function viewNuova() {
+  const pref = NUOVA_PREF; NUOVA_PREF = null;
+  const anno = new Date().getFullYear();
+  const inp = (k, l, extra = "", val = "") => `<div class="f"><label>${esc(l)}</label><input name="${k}" value="${esc(val)}" ${extra}></div>`;
+  app().innerHTML = `<header class="hdr"><div class="row"><button class="ib" id="n-back">${I.back}</button><h1>Nuova pratica</h1></div>
+      ${pref ? `<div class="sub">Dal preventivo ${esc(pref.numero)} accettato da ${esc(pref.dest || "")}</div>` : ""}</header>
+    <main><form id="nf" autocomplete="off" onsubmit="return false">
+      <div class="card"><h3>Pratica</h3>
+        <div class="g2"><div class="f"><label>Anno</label><input type="number" id="n-anno" value="${anno}" inputmode="numeric"></div><div class="f"><label>Numero</label><input type="number" id="n-num" value="${nextNumero(anno)}" inputmode="numeric"></div></div>
+        <div class="f"><label>Tipo pratica</label><select id="n-tipo">${TIPI.map(([l, c]) => `<option value="${c}" ${pref?.tipoCode === c ? "selected" : ""}>${esc(l)}</option>`).join("")}</select></div>
+        ${inp("canale", "Canale / agenzia", "", pref?.canale)}${inp("compenso", "Compenso concordato €", 'inputmode="decimal"', pref?.imponibile ? String(pref.imponibile) : "")}</div>
+      <div class="card"><h3>Committente</h3>${inp("committente", "Cognome e nome", 'autocapitalize="words"', pref?.dest)}
+        <div class="g2">${inp("telefono", "Telefono", 'type="tel"', pref?.telefono)}${inp("email", "E-mail", 'type="email" autocapitalize="off"', pref?.email)}</div>${inp("cf", "Codice fiscale / P.IVA", 'autocapitalize="characters"')}</div>
+      <div class="card"><h3>Immobile</h3>${inp("indirizzo", "Indirizzo", "", pref?.indirizzo)}
+        <div class="g2" style="grid-template-columns:1fr 80px">${inp("comune", "Comune", "", pref?.comune)}${inp("provincia", "Prov.", 'maxlength="2" autocapitalize="characters"')}</div>
+        <div class="g3">${inp("foglio", "Foglio", 'inputmode="numeric"')}${inp("mappale", "Mappale", 'inputmode="numeric"')}${inp("sub", "Sub.", 'inputmode="numeric"')}</div>
+        <div class="f"><label>Descrizione lavori</label><textarea name="descrizione" rows="2"></textarea></div><div class="f"><label>Note</label><textarea name="note" rows="2"></textarea></div></div>
+      <div class="card"><h3>Cartella su OneDrive</h3><div class="f"><label>Nome cartella</label><input id="n-dir"></div><div class="hint" id="n-warn"></div>
+        <div class="hint" style="margin-top:8px">Sottocartelle: ${SOTTOCARTELLE.map(esc).join(", ")} + ${CARTELLA_BASE}</div></div>
+      <button class="btn gold full" id="n-ok" style="padding:14px">${I.plus}Crea pratica su OneDrive</button></form></main>${tabbar("")}`;
+  wireTabbar();
+  $("#n-back").onclick = () => history.back();
+  const F = k => $(`#nf [name="${k}"]`);
+  let dirEd = false;
+  const upd = () => {
+    const a = +$("#n-anno").value, n = +$("#n-num").value;
+    if (!dirEd) {
+      const who = camel(String(F("committente").value).split(/\s+/)[0]), can = camel(F("canale").value);
+      const parts = [$("#n-tipo").value, camel(F("indirizzo").value), camel(F("comune").value), who || can].filter(Boolean);
+      if (who && can && can !== who) parts.push(can);
+      $("#n-dir").value = `${n}-${String(a).slice(2)}_${parts.join("-")}`;
+    }
+    const dup = D.prat.find(p => p.anno === a && p.num === n);
+    $("#n-warn").innerHTML = dup ? `<span style="color:var(--bad)">⚠ Esiste già la pratica ${esc(dup.dir)}</span>` : `Verrà creata in <b>${esc(CFG.root)}\\${a}\\${esc($("#n-dir").value)}</b>`;
+  };
+  $("#n-anno").oninput = () => { $("#n-num").value = nextNumero(+$("#n-anno").value); upd(); };
+  ["#n-num", "#n-tipo"].forEach(id => $(id).addEventListener("input", upd));
+  ["committente", "indirizzo", "comune", "canale"].forEach(k => F(k).addEventListener("input", upd));
+  $("#n-dir").oninput = () => { dirEd = true; upd(); };
+  upd();
+  $("#n-ok").onclick = async () => {
+    const a = +$("#n-anno").value, n = +$("#n-num").value, dirName = safeName($("#n-dir").value);
+    if (!a || !n || !dirName) return toast("Compila anno, numero e nome cartella", true);
+    if (!F("committente").value.trim() && !(await conferma("Senza committente", "Creare la pratica senza il nome del committente?", "Crea"))) return;
+    if (D.prat.some(p => p.anno === a && p.num === n) && !(await conferma("Numero già usato", `Esiste già una pratica ${n}-${String(a).slice(2)}. Crearla comunque?`, "Crea comunque"))) return;
+    const b = $("#n-ok"); b.disabled = true; b.innerHTML = `<span class="spin"></span> Creo la pratica…`;
+    const tipoLab = (TIPI.find(t => t[1] === $("#n-tipo").value) || [""])[0], now = new Date().toISOString();
+    const meta = { anno: a, codice: `${n}-${String(a).slice(2)}`, tipo: tipoLab, stato: "in_corso", statoAgg: now, compensoAgg: now, dataApertura: oggi() };
+    $$("#nf [name]").forEach(i => { const v = i.value.trim(); if (v) meta[i.name] = v; });
+    if (meta.cf) meta.cf = meta.cf.toUpperCase(); if (meta.provincia) meta.provincia = meta.provincia.toUpperCase();
+    if (pref) meta.preventivi = [{ id: pref.id, data: pref.data, file: pref.file || "", destinatario: pref.dest, imponibile: pref.imponibile, totale: pref.totale, regime: pref.regime, voci: (pref.voci || []).map(v => ({ t: v.t, imp: num(v.imp) })), numero: pref.numero }];
+    diarioPush(meta, "Pratica aperta dal telefono" + (tipoLab ? " · " + tipoLab : ""), "crea");
+    try {
+      try { await mkdir([], String(a)); } catch (e) { if (e.status !== 409) throw e; }
+      let d;
+      try { d = await mkdir([String(a)], dirName); } catch (e) { if (e.status === 409) throw new Error("esiste già una cartella con questo nome"); throw e; }
+      for (const s of SOTTOCARTELLE) { try { await mkdir([String(a), dirName], s); } catch (e) { console.warn(s, e); } }
+      try { await gCopy([CARTELLA_BASE], d.id, CARTELLA_BASE); } catch (e) { console.warn("basecad", e); }
+      if (pref?.file) { try { await gCopy([...(pref.cartella || ["_Preventivi", String(pref.anno || a)]), pref.file], d.id, pref.file); } catch (e) { console.warn("preventivo", e); } }
+      meta.aggiornato = new Date().toISOString();
+      await writeJSON([String(a), dirName, "_pratica.json"], meta, null, "replace");
+      if (pref) { try { await prevModifica(L => { const y = L.find(z => z.id === pref.id); if (y) { y.stato = "accettato"; y.statoData = oggi(); y.pratica = meta.codice; } }); } catch (e) { toast("Pratica creata, ma il preventivo non è stato segnato come accettato: " + e.message, true); } }
+      const p = parseDirName(String(a), dirName); D.prat.unshift(p); D.byKey[p.key] = p;
+      const c = ls.get("ps_cache", null); if (c) { c.dirs.push([String(a), dirName]); ls.set("ps_cache", c); }
+      OV[p.key] = { meta, at: meta.aggiornato }; salvaOV();
+      toast(`Pratica ${meta.codice} creata su OneDrive`);
+      PCUR = { key: p.key, tab: "doc", sub: [], meta, files: null, filesAt: 0 };
+      location.hash = "#/p/" + encodeURIComponent(p.key);
+    } catch (e) { toast("Errore: " + e.message, true); b.disabled = false; b.innerHTML = `${I.plus}Crea pratica su OneDrive`; }
+  };
+}
+
+/* ---------- preventivi ---------- */
+let PV_F = "attesa";
+async function viewPreventivi() {
+  app().innerHTML = `<header class="hdr"><div class="row"><h1>Preventivi</h1><button class="ib" id="v-ref">${I.ref}</button></div><div class="sub">In attesa di conferma: quando il cliente accetta diventano una pratica</div></header>
+    <div class="chips" id="v-f">${[["attesa", "In attesa"], ["accettato", "Accettati"], ["rifiutato", "Rifiutati"], ["", "Tutti"]].map(([k, l]) => `<button class="chip ${PV_F === k ? "on" : ""}" data-f="${k}">${l}</button>`).join("")}</div>
+    <main><button class="btn gold full" id="v-new" style="margin-top:6px">${I.plus}Nuovo preventivo</button><div id="v-l"><div class="empty"><span class="spin"></span> Carico…</div></div></main>${tabbar("v")}`;
+  wireTabbar();
+  $$("#v-f [data-f]").forEach(b => b.onclick = () => { PV_F = b.dataset.f; $$("#v-f .chip").forEach(x => x.classList.toggle("on", x === b)); listaPrev(); });
+  $("#v-new").onclick = () => editorPrev();
+  $("#v-ref").onclick = async () => { await prevCarica().catch(e => toast(e.message, true)); listaPrev(); };
+  if (!D.prev) { try { await prevCarica(); } catch (e) { $("#v-l").innerHTML = `<div class="warn">Non riesco a leggere i preventivi: ${esc(e.message)}</div>`; return; } }
+  listaPrev();
+}
+function listaPrev() {
+  const el = $("#v-l"); if (!el) return;
+  const L = (D.prev || []).filter(x => !PV_F || x.stato === PV_F).sort((a, b) => (a.data < b.data ? 1 : -1));
+  const att = (D.prev || []).filter(x => x.stato === "attesa");
+  el.innerHTML = (PV_F === "attesa" && att.length ? `<div class="hint" style="margin:10px 4px 0">${att.length} in attesa · ${eur(att.reduce((s, x) => s + num(x.imponibile), 0))} di onorario in ballo</div>` : "") +
+    (L.map(x => { const [lab, col] = PREV_ST[x.stato] || PREV_ST.attesa; const gg = x.stato === "attesa" && x.data ? Math.floor((Date.now() - Date.parse(x.data)) / 864e5) : null;
+      return `<div class="pv" style="--sc:${col}" data-id="${esc(x.id)}"><div class="t"><b>${esc(x.numero)} · ${esc(x.dest || "—")}</b><b>${eur(x.totale || 0)}</b></div>
+        <div class="s">${esc([x.tipo, x.comune, x.indirizzo].filter(Boolean).join(" · "))}${x.canale ? " · " + esc(x.canale) : ""}<br>${esc(lab)}${gg != null ? ` · ${gg === 0 ? "inviato oggi" : "da " + gg + " giorni"}` : x.pratica ? " · pratica " + esc(x.pratica) : ""}${x.daGenerare ? ' · <span style="color:#b45309">Word da creare sul PC</span>' : ""}</div>
+        <div class="row2">${x.stato === "attesa" ? `<button class="btn pri" data-a="ok">${I.ok}Accettato</button><button class="btn" data-a="no">Rifiutato</button>` : x.stato === "accettato" && x.pratica ? `<button class="btn" data-a="vai">Apri pratica</button>` : `<button class="btn" data-a="riapri">Rimetti in attesa</button>`}
+          ${x.file ? `<button class="btn" data-a="file">${I.eye}</button>` : ""}${x.telefono ? `<a class="btn" href="tel:${esc(x.telefono)}">${I.phone}</a>` : ""}</div></div>`; }).join("") || `<div class="empty">${(D.prev || []).length ? "Nessun preventivo con questo filtro" : "Nessun preventivo"}</div>`);
+  $$(".pv", el).forEach(r => { const x = D.prev.find(y => y.id === r.dataset.id); $$("[data-a]", r).forEach(b => b.onclick = () => azionePrev(x, b.dataset.a)); });
+}
+async function azionePrev(x, a) {
+  try {
+    if (a === "ok") { if (!(await conferma("Preventivo accettato", `Apro <b>Nuova pratica</b> già compilata con i dati del preventivo <b>${esc(x.numero)}</b>.`, "Apri la pratica"))) return; NUOVA_PREF = x; location.hash = "#/nuova"; return; }
+    if (a === "vai") { const p = D.prat.find(q => String(q.codice).toLowerCase() === String(x.pratica).toLowerCase()); if (!p) return toast("Pratica non trovata", true); location.hash = "#/p/" + encodeURIComponent(p.key); return; }
+    if (a === "file") { const it = await gItem([...(x.cartella || ["_Preventivi", String(x.anno)]), x.file]); if (!it) return toast("File del preventivo non trovato", true); location.href = it.webUrl; return; }
+    if (a === "no" || a === "riapri") { const st = a === "no" ? "rifiutato" : "attesa"; await prevModifica(L => { const y = L.find(z => z.id === x.id); if (y) { y.stato = st; y.statoData = oggi(); } }); listaPrev(); toast(`${x.numero}: ${PREV_ST[st][0].toLowerCase()}`); }
+  } catch (e) { toast("Errore: " + e.message, true); }
+}
+function editorPrev() {
+  const tc0 = "Ape"; const st = { voci: presetFor(catOf(tc0)) };
+  sheet("Nuovo preventivo", `<div class="f"><label>Destinatario (cliente)</label><input id="pe-dest" autocapitalize="words"></div>
+    <div class="g2"><div class="f"><label>Telefono</label><input id="pe-tel" type="tel"></div><div class="f"><label>E-mail</label><input id="pe-mail" type="email" autocapitalize="off"></div></div>
+    <div class="f"><label>Canale / agenzia</label><input id="pe-can"></div>
+    <div class="f"><label>Tipo pratica</label><select id="pe-tipo">${TIPI.map(([l, c]) => `<option value="${c}">${esc(l)}</option>`).join("")}</select></div>
+    <div class="f"><label>Indirizzo immobile</label><input id="pe-ind"></div><div class="f"><label>Comune</label><input id="pe-com"></div>
+    <div class="f"><label>Voci (descrizione e onorario €)</label></div><div id="pe-v"></div><button class="btn full" id="pe-add" style="margin-bottom:10px">${I.plus}Aggiungi voce</button>
+    <div class="g2"><div class="f"><label>Regime</label><select id="pe-reg"><option value="forfettario">Forfettario</option><option value="ordinario">Ordinario (IVA 22%)</option></select></div><div class="f"><label>Cassa %</label><input id="pe-cassa" value="5" inputmode="decimal"></div></div>
+    <div class="tot"><span>Totale</span><span id="pe-tot">€ 0</span></div>
+    <p class="hint">Il preventivo resta tra quelli <b>in attesa</b>. Il documento Word si crea da solo la prossima volta che apri Pratiche Studio sul PC.</p>
+    <div class="row2"><button class="btn" data-n>Annulla</button><button class="btn pri" data-y>${I.ok}Salva preventivo</button></div>`, (bg, close) => {
+    const tot = () => { const c = calcPrev({ voci: st.voci, cassa: $("#pe-cassa", bg).value, regime: $("#pe-reg", bg).value }); $("#pe-tot", bg).textContent = eur(c.tot) + (c.imp ? ` (onorario ${eur(c.imp)})` : ""); };
+    const draw = () => {
+      $("#pe-v", bg).innerHTML = st.voci.map((v, i) => `<div class="voce" data-i="${i}"><input data-f="t" value="${esc(v.t)}" placeholder="Descrizione"><input data-f="imp" value="${esc(v.imp)}" inputmode="decimal" placeholder="€"><button data-rm>✕</button></div>`).join("");
+      $$(".voce", bg).forEach(r => { const i = +r.dataset.i; $$("[data-f]", r).forEach(inp => inp.oninput = () => { st.voci[i][inp.dataset.f] = inp.value; tot(); }); $("[data-rm]", r).onclick = () => { st.voci.splice(i, 1); draw(); }; });
+      tot();
+    };
+    $("#pe-tipo", bg).onchange = () => { st.voci = presetFor(catOf($("#pe-tipo", bg).value)); draw(); };
+    $("#pe-add", bg).onclick = () => { st.voci.push({ t: "", d: "", imp: "" }); draw(); };
+    $("#pe-reg", bg).onchange = tot; $("#pe-cassa", bg).oninput = tot;
+    $("[data-n]", bg).onclick = close;
+    $("[data-y]", bg).onclick = async () => {
+      const dest = $("#pe-dest", bg).value.trim(); if (!dest) return toast("Scrivi il destinatario", true);
+      const b = $("[data-y]", bg); b.disabled = true; b.innerHTML = `<span class="spin"></span> Salvo…`;
+      const anno = new Date().getFullYear(), tc = $("#pe-tipo", bg).value;
+      const x = { id: "pv" + Date.now().toString(36), anno, data: oggi(), dest, destInd: "", telefono: $("#pe-tel", bg).value.trim(), email: $("#pe-mail", bg).value.trim(), canale: $("#pe-can", bg).value.trim(),
+        tipoCode: tc, tipo: (TIPI.find(t => t[1] === tc) || [""])[0], indirizzo: $("#pe-ind", bg).value.trim(), comune: $("#pe-com", bg).value.trim(), regime: $("#pe-reg", bg).value, cassa: $("#pe-cassa", bg).value,
+        validita: "30", pagamento: "50% all'incarico, saldo alla consegna / al deposito", extra: "", voci: st.voci.filter(v => v.t || v.imp).map(v => ({ t: v.t || "", d: v.d || "", imp: v.imp ?? "" })), stato: "attesa", cartella: ["_Preventivi", String(anno)], file: "", daGenerare: true, daTelefono: true };
+      const c = calcPrev(x); x.imponibile = Math.round(c.imp * 100) / 100; x.totale = Math.round(c.tot * 100) / 100;
+      try { await prevModifica(L => { x.numero = prevNumero(L, anno); L.push(x); }); close(); PV_F = "attesa"; viewPreventivi(); toast(`Preventivo ${x.numero} salvato`); }
+      catch (e) { toast("Non salvato: " + e.message, true); b.disabled = false; b.innerHTML = `${I.ok}Salva preventivo`; }
+    };
+    draw();
+  });
+}
+
+/* ================= avvio e navigazione ================= */
+function route() {
+  const h = location.hash || "#/";
+  let m;
+  if ((m = /^#\/p\/(.+)$/.exec(h))) return viewPratica(decodeURIComponent(m[1]));
+  if (h === "#/nuova") return viewNuova();
+  if (h === "#/preventivi") return viewPreventivi();
+  return viewLista();
+}
+async function avvio() {
+  if (!CFG.clientId) return viewSetup();
+  try { await handleRedirect(); } catch (e) { return viewLogin("Accesso non riuscito: " + e.message); }
+  if (!TOK?.rt && !TOK?.at) return viewLogin();
+  window.addEventListener("hashchange", route);
+  const cache = ls.get("ps_cache", null); if (cache) applica(cache);
+  route();
+  await caricaTutto(!!cache);
+  if (!location.hash.startsWith("#/p/") && location.hash !== "#/nuova") route();
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && Date.now() - (window.__lastLoad || 0) > 5 * 60e3) { window.__lastLoad = Date.now(); caricaTutto(true).then(() => { if (!location.hash.startsWith("#/p/") && location.hash !== "#/nuova") route(); }); } });
+  window.__lastLoad = Date.now();
+}
+avvio();
+</script>
+</body>
+</html>
