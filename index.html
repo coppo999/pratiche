@@ -523,8 +523,10 @@ function disegnaLista() {
 function impostazioni() {
   sheet("Impostazioni", `<p class="hint" style="margin:0 4px 10px">Cartella su OneDrive: <b>${esc(CFG.root)}</b><br>Indirizzo dell'app: <code>${esc(REDIRECT)}</code></p>
     <button class="opt" data-a="cfg">${I.cog}Cambia ID applicazione o cartella</button>
+    <button class="opt" data-a="gk">${I.edit}Chiave Gemini (lettura documenti)${ls.get("ps_gkey", "") ? " ✓" : ""}</button>
     <button class="opt bad" data-a="out">${I.ext}Esci dall'account Microsoft</button>`, (bg, close) => {
     $("[data-a=cfg]", bg).onclick = () => { close(); viewSetup(); };
+    $("[data-a=gk]", bg).onclick = async () => { close(); if (await chiaveGemini(true)) toast("Chiave Gemini salvata su questo telefono"); };
     $("[data-a=out]", bg).onclick = () => { close(); logout(); };
   });
 }
@@ -705,6 +707,52 @@ function tabDiario(p, body) {
   };
 }
 
+/* ---------- lettura documenti con Gemini (chiave salvata solo su questo telefono) ---------- */
+const NF_CAMPI = ["committente", "cf", "telefono", "email", "nascitaLuogo", "nascitaData", "residenza", "docTipo", "docNumero", "docRilascio", "docDataRilascio", "docScadenza", "indirizzo", "comune", "provincia", "foglio", "mappale", "sub", "categoria", "piano", "canale", "compenso", "descrizione"];
+const NF_DEST = { identita: "Documenti cliente", codice_fiscale: "Documenti cliente", atto: "Documenti cliente", visura: "Catasto", planimetria: "Catasto", estratto_mappa: "Catasto", ape: "Documenti cliente", foto: "Foto", preventivo: "", altro: "Documenti cliente" };
+const destDaNome = n => /\.(dwg|dxf|bak)$/i.test(n) ? "Disegni" : /visur|catast|planim|docfa|mapp|elaborato|fogl/i.test(n) ? "Catasto" : /preventiv/i.test(n) ? "" : /\.(jpe?g|png|heic|heif|webp)$/i.test(n) && !/identit|carta|\bci\b|\bcie\b|patente|passaporto|document|fronte|retro/i.test(n) ? "Foto" : "Documenti cliente";
+const b64Of = async blob => { const u = new Uint8Array(await blob.arrayBuffer()); let s = ""; for (let i = 0; i < u.length; i += 32768) s += String.fromCharCode(...u.subarray(i, i + 32768)); return btoa(s); };
+async function ridimensiona(f) {
+  if (!/^image\/(jpeg|png|webp)/.test(f.type) || f.size < 1.5e6) return f;
+  try { const bm = await createImageBitmap(f), k = Math.min(1, 2000 / Math.max(bm.width, bm.height)), c = document.createElement("canvas"); c.width = Math.round(bm.width * k); c.height = Math.round(bm.height * k); c.getContext("2d").drawImage(bm, 0, 0, c.width, c.height); return await new Promise(r => c.toBlob(x => r(x || f), "image/jpeg", .85)); } catch (e) { return f; }
+}
+async function chiaveGemini(forza) {
+  let k = ls.get("ps_gkey", "");
+  if (!k || forza) { k = (await chiedi("Chiave Gemini", "Incolla la chiave di Google AI Studio (la stessa dell'assistente sul PC)", k, "Salva")) || ""; if (k) ls.set("ps_gkey", k.trim()); }
+  return k.trim();
+}
+async function geminiLeggi(items) {
+  const key = await chiaveGemini(); if (!key) throw new Error("serve la chiave Gemini (Impostazioni ⚙)");
+  const parts = [{ text: `Sei l'assistente di uno studio tecnico (perito edile). Ti mando i documenti per aprire una nuova pratica: documento d'identità, codice fiscale, visure, planimetrie, atti, preventivi. Estrai i dati e rispondi SOLO con un JSON con queste chiavi (stringa vuota se il dato manca):
+{"file":[{"n":numero del file,"tipo":"identita|codice_fiscale|visura|planimetria|estratto_mappa|atto|preventivo|ape|foto|altro"}],
+"committente":"COGNOME Nome del cliente","cf":"","telefono":"","email":"","nascitaLuogo":"","nascitaData":"AAAA-MM-GG","residenza":"via, civico, comune",
+"docTipo":"Carta d'identità elettronica|Carta d'identità|Patente di guida|Passaporto","docNumero":"","docRilascio":"ente di rilascio","docDataRilascio":"AAAA-MM-GG","docScadenza":"AAAA-MM-GG",
+"indirizzo":"via e civico dell'IMMOBILE","comune":"comune dell'immobile","provincia":"sigla","foglio":"","mappale":"","sub":"","categoria":"es. A/2","piano":"",
+"canale":"agenzia o intermediario, se il preventivo è intestato a un'agenzia","compenso":"onorario imponibile del preventivo, solo il numero","descrizione":"lavori del preventivo, una opera per riga",
+"tipoPratica":"uno tra ${TIPI.map(t => t[1]).join(", ")} se si capisce, altrimenti vuoto"}` }];
+  let i = 0;
+  for (const it of items) {
+    i++; let f = it.file; const n = it.name.toLowerCase();
+    const mime = f.type || (/\.pdf$/.test(n) ? "application/pdf" : /\.png$/.test(n) ? "image/png" : /\.hei[cf]$/.test(n) ? "image/heic" : /\.jpe?g$/.test(n) ? "image/jpeg" : "");
+    if (!/^(image\/|application\/pdf)/.test(mime)) continue;
+    f = await ridimensiona(f); if (f.size > 12e6) continue;
+    parts.push({ text: `File ${i}: ${it.name}` }, { inline_data: { mime_type: f.type || mime, data: await b64Of(f) } });
+  }
+  if (parts.length < 2) return null;
+  const body = JSON.stringify({ contents: [{ role: "user", parts }], generationConfig: { responseMimeType: "application/json", temperature: 0 } });
+  for (const m of [...new Set([ls.get("ps_gmodel", "gemini-flash-latest"), "gemini-flash-latest", "gemini-2.5-flash", "gemini-2.0-flash"])]) {
+    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`, { method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": key }, body });
+    const j = await r.json().catch(() => ({}));
+    if (r.status === 404) continue;
+    if (r.status === 429) throw new Error("limite gratuito di Gemini raggiunto, riprova tra un minuto");
+    if (!r.ok) { if (/api.?key|permission|unauth/i.test(j.error?.message || "") || r.status === 401 || r.status === 403) { ls.del("ps_gkey"); throw new Error("chiave Gemini non valida: reinseriscila"); } throw new Error(j.error?.message || "errore " + r.status); }
+    ls.set("ps_gmodel", m);
+    const t = (j.candidates?.[0]?.content?.parts || []).map(p => p.text || "").join("").replace(/^\s*```(json)?|```\s*$/g, "").trim();
+    try { return JSON.parse(t); } catch (e) { throw new Error("risposta di Gemini non leggibile"); }
+  }
+  throw new Error("nessun modello Gemini disponibile");
+}
+
 /* ---------- nuova pratica ---------- */
 let NUOVA_PREF = null;
 function viewNuova() {
@@ -714,6 +762,7 @@ function viewNuova() {
   app().innerHTML = `<header class="hdr"><div class="row"><button class="ib" id="n-back">${I.back}</button><h1>Nuova pratica</h1></div>
       ${pref ? `<div class="sub">Dal preventivo ${esc(pref.numero)} accettato da ${esc(pref.dest || "")}</div>` : ""}</header>
     <main><form id="nf" autocomplete="off" onsubmit="return false">
+      <div class="card"><h3>Documenti</h3><div class="up"><label class="btn gold">${I.cam}Fotografa<input type="file" accept="image/*" capture="environment" id="n-cam" hidden></label><label class="btn">${I.up}Carica file<input type="file" multiple id="n-up" hidden></label></div><div class="fl" id="n-fl" style="display:none"></div><div class="hint" id="n-st" style="margin-top:8px">Documento d'identità, visure, planimetrie, preventivo: li leggo e compilo i campi. Vengono salvati nella cartella della pratica.</div></div>
       <div class="card"><h3>Pratica</h3>
         <div class="g2"><div class="f"><label>Anno</label><input type="number" id="n-anno" value="${anno}" inputmode="numeric"></div><div class="f"><label>Numero</label><input type="number" id="n-num" value="${nextNumero(anno)}" inputmode="numeric"></div></div>
         <div class="f"><label>Tipo pratica</label><select id="n-tipo">${TIPI.map(([l, c]) => `<option value="${c}" ${pref?.tipoCode === c ? "selected" : ""}>${esc(l)}</option>`).join("")}</select></div>
@@ -747,17 +796,47 @@ function viewNuova() {
   ["committente", "indirizzo", "comune", "canale"].forEach(k => F(k).addEventListener("input", upd));
   $("#n-dir").oninput = () => { dirEd = true; upd(); };
   upd();
+  const NF = { files: [], extra: {}, prev: null };
+  const st = t => { $("#n-st").innerHTML = t; };
+  const setF = (k, v) => { const el = F(k); v = String(v ?? "").trim(); if (!v) return 0; if (!el) { if (!NF.extra[k]) { NF.extra[k] = v; return 1; } return 0; } if (el.value.trim()) return 0; el.value = v; return 1; };
+  const drawF = () => { const box = $("#n-fl"); box.style.display = NF.files.length ? "" : "none";
+    box.innerHTML = NF.files.map((f, i) => `<div class="fi" style="cursor:default"><span class="ic" style="background:${/\.pdf$/i.test(f.name) ? "#dc2626" : "#7c3aed"}">${esc((extOf(f.name) || "file").slice(0, 4).toUpperCase())}</span><span class="tx"><b>${esc(f.name)}</b><select data-i="${i}" style="margin-top:4px;border:1px solid var(--line);background:var(--panel2);border-radius:8px;padding:4px;font-size:13px;max-width:100%">${["", ...SOTTOCARTELLE].map(s => `<option value="${esc(s)}" ${s === f.dest ? "selected" : ""}>${s ? esc(s) : "cartella principale"}</option>`).join("")}</select></span><button type="button" class="mn" data-rm="${i}">✕</button></div>`).join("");
+    $$("select", box).forEach(s => s.onchange = () => { NF.files[+s.dataset.i].dest = s.value; });
+    $$("[data-rm]", box).forEach(x => x.onclick = () => { NF.files.splice(+x.dataset.rm, 1); drawF(); }); };
+  let lett = Promise.resolve();
+  const aggiungi = (files, foto) => {
+    const nuovi = files.map((f, i) => { let name = safeName(f.name) || "file"; if (foto || /^image\.(jpe?g|heic|png)$/i.test(name)) { const d = new Date(), q = x => String(x).padStart(2, "0"); name = `Documento_${d.getFullYear()}${q(d.getMonth() + 1)}${q(d.getDate())}_${q(d.getHours())}${q(d.getMinutes())}${q(d.getSeconds())}${files.length > 1 ? "_" + (i + 1) : ""}.${extOf(name) || "jpg"}`; } return { file: f, name, dest: destDaNome(name) }; });
+    NF.files.push(...nuovi); drawF();
+    lett = lett.then(async () => {
+      st(`<span class="spin"></span> Leggo ${nuovi.length === 1 ? "il documento" : nuovi.length + " documenti"} con Gemini…`);
+      try {
+        const r = await geminiLeggi(nuovi); if (!r) return st("Documenti aggiunti: formato non leggibile, verranno solo salvati.");
+        let n = 0;
+        for (const x of r.file || []) { const it = nuovi[(+x.n || 0) - 1]; if (!it) continue; if (x.tipo in NF_DEST && !/\.(dwg|dxf)$/i.test(it.name)) it.dest = NF_DEST[x.tipo]; if (x.tipo === "preventivo") NF.prev = { file: it.name }; }
+        for (const k of NF_CAMPI) n += setF(k, r[k]);
+        if (NF.prev && num(r.compenso)) NF.prev.imp = num(r.compenso);
+        if (r.tipoPratica && TIPI.some(t => t[1] === r.tipoPratica) && !$("#n-tipo").dataset.t) { $("#n-tipo").value = r.tipoPratica; n++; }
+        drawF(); upd();
+        st(n ? `✓ Ho compilato ${n} campi dai documenti. Controllali prima di creare la pratica.` : "Documenti aggiunti: non ho trovato dati da compilare.");
+      } catch (e) { st(`<span style="color:var(--bad)">Lettura non riuscita: ${esc(e.message)}</span>. I documenti verranno comunque salvati nella pratica.`); }
+    });
+  };
+  $("#n-cam").onchange = e => { const f = [...e.target.files]; e.target.value = ""; if (f.length) aggiungi(f, true); };
+  $("#n-up").onchange = e => { const f = [...e.target.files]; e.target.value = ""; if (f.length) aggiungi(f, false); };
+  $("#n-tipo").addEventListener("change", e => { if (e.isTrusted) $("#n-tipo").dataset.t = 1; });
   $("#n-ok").onclick = async () => {
     const a = +$("#n-anno").value, n = +$("#n-num").value, dirName = safeName($("#n-dir").value);
     if (!a || !n || !dirName) return toast("Compila anno, numero e nome cartella", true);
     if (!F("committente").value.trim() && !(await conferma("Senza committente", "Creare la pratica senza il nome del committente?", "Crea"))) return;
     if (D.prat.some(p => p.anno === a && p.num === n) && !(await conferma("Numero già usato", `Esiste già una pratica ${n}-${String(a).slice(2)}. Crearla comunque?`, "Crea comunque"))) return;
-    const b = $("#n-ok"); b.disabled = true; b.innerHTML = `<span class="spin"></span> Creo la pratica…`;
+    const b = $("#n-ok"); b.disabled = true; b.innerHTML = `<span class="spin"></span> Creo la pratica…`; await lett;
     const tipoLab = (TIPI.find(t => t[1] === $("#n-tipo").value) || [""])[0], now = new Date().toISOString();
     const meta = { anno: a, codice: `${n}-${String(a).slice(2)}`, tipo: tipoLab, stato: "in_corso", statoAgg: now, compensoAgg: now, dataApertura: oggi() };
     $$("#nf [name]").forEach(i => { const v = i.value.trim(); if (v) meta[i.name] = v; });
     if (meta.cf) meta.cf = meta.cf.toUpperCase(); if (meta.provincia) meta.provincia = meta.provincia.toUpperCase();
     if (pref) meta.preventivi = [{ id: pref.id, data: pref.data, file: pref.file || "", destinatario: pref.dest, imponibile: pref.imponibile, totale: pref.totale, regime: pref.regime, voci: (pref.voci || []).map(v => ({ t: v.t, imp: num(v.imp) })), numero: pref.numero }];
+    for (const [k, v] of Object.entries(NF.extra)) if (v && !meta[k]) meta[k] = v;
+    if (!pref && NF.prev) meta.preventivi = [{ id: "pv" + Date.now().toString(36), data: oggi(), file: NF.prev.file, destinatario: meta.committente || "", imponibile: NF.prev.imp || num(meta.compenso) || 0, totale: 0, esterno: true }];
     diarioPush(meta, "Pratica aperta dal telefono" + (tipoLab ? " · " + tipoLab : ""), "crea");
     try {
       try { await mkdir([], String(a)); } catch (e) { if (e.status !== 409) throw e; }
@@ -765,6 +844,7 @@ function viewNuova() {
       try { d = await mkdir([String(a)], dirName); } catch (e) { if (e.status === 409) throw new Error("esiste già una cartella con questo nome"); throw e; }
       for (const s of SOTTOCARTELLE) { try { await mkdir([String(a), dirName], s); } catch (e) { console.warn(s, e); } }
       try { await gCopy([CARTELLA_BASE], d.id, CARTELLA_BASE); } catch (e) { console.warn("basecad", e); }
+      let nf = 0; for (const it of NF.files) { try { b.innerHTML = `<span class="spin"></span> Carico ${esc(it.name)}…`; await upload([String(a), dirName, ...(it.dest ? [it.dest] : []), it.name], it.file); nf++; } catch (e) { toast("Non caricato: " + it.name, true); } }
       if (pref?.file) { try { await gCopy([...(pref.cartella || ["_Preventivi", String(pref.anno || a)]), pref.file], d.id, pref.file); } catch (e) { console.warn("preventivo", e); } }
       meta.aggiornato = new Date().toISOString();
       await writeJSON([String(a), dirName, "_pratica.json"], meta, null, "replace");
@@ -772,7 +852,7 @@ function viewNuova() {
       const p = parseDirName(String(a), dirName); D.prat.unshift(p); D.byKey[p.key] = p;
       const c = ls.get("ps_cache", null); if (c) { c.dirs.push([String(a), dirName]); ls.set("ps_cache", c); }
       OV[p.key] = { meta, at: meta.aggiornato }; salvaOV();
-      toast(`Pratica ${meta.codice} creata su OneDrive`);
+      toast(`Pratica ${meta.codice} creata su OneDrive${nf ? ` con ${nf} documenti` : ""}`);
       PCUR = { key: p.key, tab: "doc", sub: [], meta, files: null, filesAt: 0 };
       location.hash = "#/p/" + encodeURIComponent(p.key);
     } catch (e) { toast("Errore: " + e.message, true); b.disabled = false; b.innerHTML = `${I.plus}Crea pratica su OneDrive`; }
