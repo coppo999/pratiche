@@ -261,7 +261,7 @@ const G = "https://graph.microsoft.com/v1.0";
 class GErr extends Error { constructor(st, msg) { super(msg); this.status = st; } }
 async function gf(path, opt = {}, tent = 0) {
   const at = await token();
-  const r = await fetch(path.startsWith("http") ? path : G + path, { ...opt, headers: { Authorization: "Bearer " + at, ...(opt.headers || {}) } });
+  const r = await fetch(path.startsWith("http") ? path : G + path, { signal: tmo(120000), ...opt, headers: { Authorization: "Bearer " + at, ...(opt.headers || {}) } });
   if (r.status === 401 && tent < 1) { TOK.exp = 0; return gf(path, opt, tent + 1); }
   if ((r.status === 429 || r.status === 503 || r.status === 504) && tent < 3) { await sleep((+r.headers.get("Retry-After") || 2) * 1000); return gf(path, opt, tent + 1); }
   return r;
@@ -711,6 +711,7 @@ function tabDiario(p, body) {
 const NF_CAMPI = ["committente", "cf", "telefono", "email", "nascitaLuogo", "nascitaData", "residenza", "docTipo", "docNumero", "docRilascio", "docDataRilascio", "docScadenza", "indirizzo", "comune", "provincia", "foglio", "mappale", "sub", "categoria", "piano", "canale", "compenso", "descrizione"];
 const NF_DEST = { identita: "Documenti cliente", codice_fiscale: "Documenti cliente", atto: "Documenti cliente", visura: "Catasto", planimetria: "Catasto", estratto_mappa: "Catasto", ape: "Documenti cliente", foto: "Foto", preventivo: "", altro: "Documenti cliente" };
 const destDaNome = n => /\.(dwg|dxf|bak)$/i.test(n) ? "Disegni" : /visur|catast|planim|docfa|mapp|elaborato|fogl/i.test(n) ? "Catasto" : /preventiv/i.test(n) ? "" : /\.(jpe?g|png|heic|heif|webp)$/i.test(n) && !/identit|carta|\bci\b|\bcie\b|patente|passaporto|document|fronte|retro/i.test(n) ? "Foto" : "Documenti cliente";
+const tmo = ms => { const c = new AbortController(); setTimeout(() => c.abort(), ms); return c.signal; };
 const b64Of = async blob => { const u = new Uint8Array(await blob.arrayBuffer()); let s = ""; for (let i = 0; i < u.length; i += 32768) s += String.fromCharCode(...u.subarray(i, i + 32768)); return btoa(s); };
 async function ridimensiona(f) {
   if (!/^image\/(jpeg|png|webp)/.test(f.type) || f.size < 1.5e6) return f;
@@ -741,7 +742,7 @@ async function geminiLeggi(items) {
   if (parts.length < 2) return null;
   const body = JSON.stringify({ contents: [{ role: "user", parts }], generationConfig: { responseMimeType: "application/json", temperature: 0 } });
   for (const m of [...new Set([ls.get("ps_gmodel", "gemini-flash-latest"), "gemini-flash-latest", "gemini-2.5-flash", "gemini-2.0-flash"])]) {
-    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`, { method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": key }, body });
+    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`, { method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": key }, body, signal: tmo(80000) }).catch(e => { throw new Error(e.name === "AbortError" ? "Gemini non risponde: riprova con meno documenti per volta" : "connessione a Gemini non riuscita (" + e.message + ")"); });
     const j = await r.json().catch(() => ({}));
     if (r.status === 404) continue;
     if (r.status === 429) throw new Error("limite gratuito di Gemini raggiunto, riprova tra un minuto");
@@ -829,7 +830,7 @@ function viewNuova() {
     if (!a || !n || !dirName) return toast("Compila anno, numero e nome cartella", true);
     if (!F("committente").value.trim() && !(await conferma("Senza committente", "Creare la pratica senza il nome del committente?", "Crea"))) return;
     if (D.prat.some(p => p.anno === a && p.num === n) && !(await conferma("Numero già usato", `Esiste già una pratica ${n}-${String(a).slice(2)}. Crearla comunque?`, "Crea comunque"))) return;
-    const b = $("#n-ok"); b.disabled = true; b.innerHTML = `<span class="spin"></span> Creo la pratica…`; await lett;
+    const b = $("#n-ok"); b.disabled = true; b.innerHTML = `<span class="spin"></span> Finisco di leggere i documenti…`; await Promise.race([lett, sleep(90000)]); b.innerHTML = `<span class="spin"></span> Creo la cartella…`;
     const tipoLab = (TIPI.find(t => t[1] === $("#n-tipo").value) || [""])[0], now = new Date().toISOString();
     const meta = { anno: a, codice: `${n}-${String(a).slice(2)}`, tipo: tipoLab, stato: "in_corso", statoAgg: now, compensoAgg: now, dataApertura: oggi() };
     $$("#nf [name]").forEach(i => { const v = i.value.trim(); if (v) meta[i.name] = v; });
@@ -843,10 +844,11 @@ function viewNuova() {
       let d;
       try { d = await mkdir([String(a)], dirName); } catch (e) { if (e.status === 409) throw new Error("esiste già una cartella con questo nome"); throw e; }
       for (const s of SOTTOCARTELLE) { try { await mkdir([String(a), dirName], s); } catch (e) { console.warn(s, e); } }
+      b.innerHTML = `<span class="spin"></span> Copio basecad…`;
       try { await gCopy([CARTELLA_BASE], d.id, CARTELLA_BASE); } catch (e) { console.warn("basecad", e); }
       let nf = 0; for (const it of NF.files) { try { b.innerHTML = `<span class="spin"></span> Carico ${esc(it.name)}…`; await upload([String(a), dirName, ...(it.dest ? [it.dest] : []), it.name], it.file); nf++; } catch (e) { toast("Non caricato: " + it.name, true); } }
       if (pref?.file) { try { await gCopy([...(pref.cartella || ["_Preventivi", String(pref.anno || a)]), pref.file], d.id, pref.file); } catch (e) { console.warn("preventivo", e); } }
-      meta.aggiornato = new Date().toISOString();
+      meta.aggiornato = new Date().toISOString(); b.innerHTML = `<span class="spin"></span> Salvo la scheda…`;
       await writeJSON([String(a), dirName, "_pratica.json"], meta, null, "replace");
       if (pref) { try { await prevModifica(L => { const y = L.find(z => z.id === pref.id); if (y) { y.stato = "accettato"; y.statoData = oggi(); y.pratica = meta.codice; } }); } catch (e) { toast("Pratica creata, ma il preventivo non è stato segnato come accettato: " + e.message, true); } }
       const p = parseDirName(String(a), dirName); D.prat.unshift(p); D.byKey[p.key] = p;
