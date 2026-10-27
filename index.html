@@ -617,7 +617,7 @@ async function tabDoc(p, body) {
   $("#d-cam", body).onchange = e => { const f = [...e.target.files]; e.target.value = ""; if (f.length) caricaFiles(f, true); };
   $("#d-up", body).onchange = e => { const f = [...e.target.files]; e.target.value = ""; if (f.length) caricaFiles(f, false); };
   try {
-    if (!PCUR.files || Date.now() - PCUR.filesAt > 45 * 60e3 || PCUR.filesFor !== parts.join("/")) { PCUR.files = await gList(parts); PCUR.filesAt = Date.now(); PCUR.filesFor = parts.join("/"); }
+    if (!PCUR.files || Date.now() - PCUR.filesAt > 20 * 60e3 || PCUR.filesFor !== parts.join("/")) { PCUR.files = await gList(parts); PCUR.filesAt = Date.now(); PCUR.filesFor = parts.join("/"); }
   } catch (e) { $("#d-l", body).innerHTML = `<div class="empty">${e.status === 404 ? "Cartella non trovata su OneDrive" : "Errore: " + esc(e.message)}</div>`; return; }
   const L = PCUR.files.filter(x => !/^(desktop\.ini|_pratica\.json|thumbs\.db)$/i.test(x.name) && !x.name.startsWith("~$")).sort((a, b) => (!!b.folder - !!a.folder) || natCmp(a.name, b.name));
   const el = $("#d-l", body);
@@ -632,19 +632,26 @@ async function tabDoc(p, body) {
   $$(".fi", el).forEach(a => a.onclick = e => {
     const x = L[+a.dataset.i];
     if (e.target.closest("[data-m]")) { e.preventDefault(); return menuFile(p, x, body); }
-    if (x.folder) { e.preventDefault(); PCUR.sub = [...PCUR.sub, x.name]; PCUR.files = null; tabDoc(p, body); }
+    e.preventDefault();
+    if (x.folder) { PCUR.sub = [...PCUR.sub, x.name]; PCUR.files = null; tabDoc(p, body); } else apriFile(x, apribile(x.name));
   });
 }
+async function apriFile(x, diretto) {   // i link di OneDrive scadono dopo un'ora: li chiedo nuovi a ogni apertura
+  const w = window.open("", "_blank");
+  try { const it = await gj(`/me/drive/items/${x.id}`); const u = diretto ? it["@microsoft.graph.downloadUrl"] : it.webUrl; if (w) w.location.href = u; else location.href = u; }
+  catch (e) { if (w) w.close(); toast("Non riesco ad aprire il file: " + e.message, true); }
+}
 function menuFile(p, x, body) {
-  sheet(x.name, `${x.folder ? "" : `<a class="opt" href="${esc(x["@microsoft.graph.downloadUrl"] || "#")}" target="_blank" rel="noopener">${I.eye}Apri / scarica</a>`}
+  sheet(x.name, `${x.folder ? "" : `<button class="opt" data-a="op">${I.eye}Apri / scarica</button>`}
     <a class="opt" href="${esc(x.webUrl)}" target="_blank" rel="noopener">${I.ext}Apri in OneDrive</a>
     ${navigator.share && !x.folder ? `<button class="opt" data-a="sh">${I.up}Condividi…</button>` : ""}
     <button class="opt" data-a="ren">${I.edit}Rinomina</button>
     <button class="opt bad" data-a="del">${I.trash}Elimina</button>`, (bg, close) => {
     $$("a.opt", bg).forEach(a => a.addEventListener("click", () => setTimeout(close, 50)));
+    const op = $("[data-a=op]", bg); if (op) op.onclick = () => { close(); apriFile(x, true); };
     const sh = $("[data-a=sh]", bg); if (sh) sh.onclick = async () => {
       close();
-      try { toast("Preparo il file…"); const b = await (await fetch(x["@microsoft.graph.downloadUrl"])).blob(); const f = new File([b], x.name, { type: b.type || x.file?.mimeType || "application/octet-stream" });
+      try { toast("Preparo il file…"); const b = await (await fetch((await gj(`/me/drive/items/${x.id}`))["@microsoft.graph.downloadUrl"])).blob(); const f = new File([b], x.name, { type: b.type || x.file?.mimeType || "application/octet-stream" });
         if (navigator.canShare && navigator.canShare({ files: [f] })) await navigator.share({ files: [f], title: x.name }); else await navigator.share({ title: x.name, url: x.webUrl }); }
       catch (e) { if (e.name !== "AbortError") toast("Condivisione non riuscita: " + e.message, true); }
     };
