@@ -126,6 +126,51 @@ code{background:var(--panel2);border:1px solid var(--line);border-radius:6px;pad
 .warn{background:color-mix(in srgb,#f59e0b 14%,transparent);border-radius:10px;padding:8px 10px;font-size:13px;margin:8px 0}
 .prog{height:4px;background:var(--line);border-radius:4px;overflow:hidden;margin-top:6px}.prog i{display:block;height:100%;background:var(--accent);width:0}
 .hint{font-size:12.5px;color:var(--muted)}
+/* ===== grafica vetro ===== */
+:root{--bg:#0b1220;--panel:rgba(255,255,255,.07);--panel2:rgba(255,255,255,.06);--line:rgba(255,255,255,.12);--text:#eef2fb;--muted:#9aa6bd;--accent:#7aa7ff;--glass:blur(22px) saturate(160%)}
+html,body{background:#0b1220;color:var(--text)}
+body::before{content:"";position:fixed;inset:-20%;z-index:-1;background:radial-gradient(40% 35% at 15% 10%,rgba(91,124,255,.35),transparent 70%),radial-gradient(35% 30% at 90% 30%,rgba(201,168,76,.2),transparent 70%),radial-gradient(45% 40% at 50% 100%,rgba(36,180,160,.18),transparent 70%),#0b1220;filter:blur(10px)}
+.card,.pr,.fl,.pv,.seg,.chip,.sheet,.tabbar,.hdr,.login,.toast,.act{backdrop-filter:var(--glass);-webkit-backdrop-filter:var(--glass)}
+.hdr{background:linear-gradient(180deg,rgba(11,18,32,.8),rgba(11,18,32,.45));border-bottom:1px solid var(--line)}
+.card,.pr,.fl,.pv{background:var(--panel);border-color:var(--line);border-radius:20px;box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 10px 30px rgba(0,0,0,.25)}
+.tabbar{background:rgba(15,22,38,.62);border-top:1px solid var(--line)}
+.tabbar button{font-size:11px}.tabbar button.on{color:var(--gold)}
+.chip{background:rgba(255,255,255,.06);border-color:var(--line);color:var(--muted)}
+.chip.on{background:rgba(122,167,255,.25);border-color:rgba(122,167,255,.5);color:#fff}
+.f input,.f select,.f textarea,.voce input{background:rgba(255,255,255,.06);border-color:var(--line);color:var(--text)}
+select option{color:#111}
+.sheet{background:rgba(20,28,46,.86);border-top:1px solid var(--line)}
+.btn{background:rgba(255,255,255,.08);border-color:var(--line);color:var(--text)}
+.btn.pri{background:linear-gradient(135deg,#3b6fe0,#2b4f8c);border-color:transparent;color:#fff}
+.search input{background:rgba(255,255,255,.1);color:#fff;border:1px solid var(--line)}
+.search input::placeholder{color:#aab4c8}
+.seg{background:rgba(255,255,255,.05);border-color:var(--line)}.seg button.on{background:rgba(255,255,255,.14);color:#fff}
+.act{background:rgba(255,255,255,.08)}
+.center{background:transparent}.login{background:rgba(255,255,255,.08);border:1px solid var(--line)}
+.cod{box-shadow:0 4px 14px color-mix(in srgb,var(--cc) 45%,transparent)}
+.toast{background:rgba(20,28,46,.92)}
+.de i{background:rgba(255,255,255,.08);color:var(--gold)}
+code{background:rgba(255,255,255,.08);border-color:var(--line)}
+/* task, agenda, clienti */
+.tk{display:flex;align-items:center;gap:12px;padding:11px 2px;border-top:1px solid var(--line);cursor:pointer}
+.tkc h3+.tk{border-top:0}
+.tk-c{width:26px;height:26px;border-radius:50%;border:2px solid #8a94a8;background:none;flex:none;display:grid;place-items:center;color:#fff;padding:0;cursor:pointer}
+.tk-c svg{width:15px;height:15px}
+.tk.done .tk-c{background:#3b82f6;border-color:#3b82f6}
+.tk.done b{text-decoration:line-through;color:var(--muted)}
+.tk .tx{flex:1;min-width:0}.tk b{display:block;font-weight:650}
+.tk-m{display:flex;gap:8px;align-items:center;margin-top:5px;font-size:12.5px;color:var(--muted);flex-wrap:wrap}
+.tk-m .late{color:#f87171;font-weight:600}
+.tk-p{display:inline-flex;align-items:center;gap:6px;padding:3px 9px;border-radius:99px;background:color-mix(in srgb,var(--cc) 22%,transparent);color:#e5ecfa;font-weight:600}
+.tk-p i{width:8px;height:8px;border-radius:50%;background:var(--cc)}
+.tk-f{flex:none;font-size:12px;font-weight:700;color:var(--fc);background:color-mix(in srgb,var(--fc) 15%,transparent);padding:4px 9px;border-radius:9px}
+.ag-r{display:flex;gap:10px;align-items:center;padding:9px 0;border-top:1px solid var(--line);cursor:pointer}
+.ag h3+.ag-r{border-top:0}
+.ag-o{width:62px;flex:none;font-size:12.5px;color:var(--muted);text-align:right}
+.ag-bar{width:4px;align-self:stretch;border-radius:4px;background:#8b7cf6;flex:none}
+.ag-r .tx{flex:1;min-width:0}.ag-r b{display:block}.ag-r small{color:var(--muted);font-size:12px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.av{width:42px;height:42px;border-radius:50%;flex:none;display:grid;place-items:center;font-weight:800;font-size:14px;color:#fff;background:linear-gradient(135deg,#5b7cff,#8b5cf6)}
+.act.cl{color:var(--text);border-color:var(--line)}
 </style>
 </head>
 <body>
@@ -160,6 +205,9 @@ function toast(t, err) { const e = $("#toast"); e.textContent = t; e.className =
 const fmtSize = n => n == null ? "" : n < 1024 ? n + " B" : n < 1048576 ? Math.round(n / 1024) + " KB" : (n / 1048576).toFixed(1) + " MB";
 
 const I = {
+  cal: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>',
+  user: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
+  task: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>',
   list: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>',
   euro: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 6.5A7 7 0 1 0 17 17.5"/><path d="M4 10h9M4 14h9"/></svg>',
   plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
@@ -329,7 +377,7 @@ function parseDirName(year, name) {
 function baseMeta(p) {
   const e = D.exp[p.key]; if (!e) return {};
   if (e.meta) return { ...e.meta };
-  return { committente: e.cliente, comune: e.comune, indirizzo: e.indirizzo, canale: e.canale, tipo: e.tipo, stato: e.stato, statoAgg: e.statoAgg, compenso: e.compenso || "", notaBreve: e.nota || "", telefono: e.telefono || "", email: e.email || "" };
+  return { committente: e.cliente, comune: e.comune, indirizzo: e.indirizzo, canale: e.canale, tipo: e.tipo, stato: e.stato, statoAgg: e.statoAgg, compenso: e.compenso || "", notaBreve: e.nota || "", telefono: e.telefono || "", email: e.email || "", residenza: e.residenza || "", cf: e.cf || "" };
 }
 function metaOf(p) {
   const o = OV[p.key], b = baseMeta(p);
@@ -443,9 +491,8 @@ function conferma(title, txt, okLab = "Conferma", bad) {
   }));
 }
 function tabbar(on) {
-  return `<nav class="tabbar"><button data-go="#/" class="${on === "p" ? "on" : ""}">${I.list}Pratiche</button>
-    <button data-go="#/nuova" class="plus"><span class="pl">${I.plus}</span>Nuova</button>
-    <button data-go="#/preventivi" class="${on === "v" ? "on" : ""}">${I.euro}Preventivi</button></nav>`;
+  const b = (k, h, ic, l) => `<button data-go="${h}" class="${on === k ? "on" : ""}">${ic}${l}</button>`;
+  return `<nav class="tabbar">${b("p", "#/", I.list, "Pratiche")}${b("t", "#/task", I.task, "Task")}<button data-go="#/nuova" class="plus"><span class="pl">${I.plus}</span>Nuova</button>${b("a", "#/agenda", I.cal, "Agenda")}${b("c", "#/clienti", I.user, "Clienti")}</nav>`;
 }
 function wireTabbar() { $$("[data-go]").forEach(b => b.onclick = () => { location.hash = b.dataset.go; }); }
 
@@ -477,7 +524,7 @@ function viewLogin(msg) {
 let listaN = 60;
 function viewLista() {
   const anni = [...new Set(D.prat.map(p => p.anno))];
-  app().innerHTML = `<header class="hdr"><div class="row"><h1>Pratiche</h1><button class="ib" id="l-ref" title="Aggiorna">${I.ref}</button><button class="ib" id="l-cfg" title="Impostazioni">${I.cog}</button></div>
+  app().innerHTML = `<header class="hdr"><div class="row"><h1>Pratiche</h1><button class="ib" id="l-pv" title="Preventivi">${I.euro}</button><button class="ib" id="l-ref" title="Aggiorna">${I.ref}</button><button class="ib" id="l-cfg" title="Impostazioni">${I.cog}</button></div>
       <div class="search"><input type="search" id="l-q" placeholder="Cerca numero, cliente, comune, via…" value="${esc(UI.q)}" enterkeyhint="search"></div></header>
     <div class="chips" id="l-f">${[["aperte", "Aperte"], ["dapagare", "Da pagare"], ["tutte", "Tutte"]].map(([k, l]) => `<button class="chip ${UI.filtro === k ? "on" : ""}" data-f="${k}">${l}</button>`).join("")}
       ${anni.map(a => `<button class="chip ${String(UI.anno) === String(a) ? "on" : ""}" data-a="${a}">${a}</button>`).join("")}</div>
@@ -488,6 +535,7 @@ function viewLista() {
   $$("#l-f [data-a]").forEach(b => b.onclick = () => { UI.anno = String(UI.anno) === b.dataset.a ? "" : b.dataset.a; salvaUI(); listaN = 60; viewLista(); });
   $("#l-ref").onclick = async () => { $("#l-ref").innerHTML = `<span class="spin"></span>`; await caricaTutto(); viewLista(); toast("Elenco aggiornato da OneDrive"); };
   $("#l-cfg").onclick = impostazioni;
+  $("#l-pv").onclick = () => { location.hash = "#/preventivi"; };
   disegnaLista();
 }
 function filtrate() {
@@ -523,9 +571,11 @@ function disegnaLista() {
 function impostazioni() {
   sheet("Impostazioni", `<p class="hint" style="margin:0 4px 10px">Cartella su OneDrive: <b>${esc(CFG.root)}</b><br>Indirizzo dell'app: <code>${esc(REDIRECT)}</code></p>
     <button class="opt" data-a="cfg">${I.cog}Cambia ID applicazione o cartella</button>
+    ${gcal.ok() ? `<button class="opt" data-a="gx">${I.cal}Scollega Google Calendar</button>` : ""}
     <button class="opt" data-a="gk">${I.edit}Chiave Gemini (lettura documenti)${ls.get("ps_gkey", "") ? " ✓" : ""}</button>
     <button class="opt bad" data-a="out">${I.ext}Esci dall'account Microsoft</button>`, (bg, close) => {
     $("[data-a=cfg]", bg).onclick = () => { close(); viewSetup(); };
+    const gx = $("[data-a=gx]", bg); if (gx) gx.onclick = () => { close(); ls.del("ps_gtok"); ls.set("ps_gcal_on", false); toast("Google Calendar scollegato"); };
     $("[data-a=gk]", bg).onclick = async () => { close(); if (await chiaveGemini(true)) toast("Chiave Gemini salvata su questo telefono"); };
     $("[data-a=out]", bg).onclick = () => { close(); logout(); };
   });
@@ -554,7 +604,7 @@ function disegnaPratica(p, m) {
       <div class="card"><div class="stbar"><span class="dot" id="p-dot" style="background:${ST_COL[st] || "#94a3b8"}"></span>
         <select id="p-st" class="f" style="margin:0;border:1px solid var(--line);background:var(--panel2);border-radius:11px;padding:10px;font-size:16px">${Object.entries(STATI).map(([k, l]) => `<option value="${k}" ${st === k ? "selected" : ""}>${esc(l)}</option>`).join("")}${st ? "" : `<option value="" selected>Imposta stato…</option>`}</select></div>
         <div class="f" style="margin:10px 0 0"><input id="p-nt" placeholder="Nota: es. inviata in Comune il 12/10 – prot. 12345" value="${esc(m.notaBreve || "")}"></div><div class="ok" id="p-ok"></div></div>
-      <div class="seg" id="p-tabs">${[["doc", "Documenti"], ["dati", "Dati"], ["diario", "Diario"]].map(([k, l]) => `<button data-t="${k}" class="${PCUR.tab === k ? "on" : ""}">${l}</button>`).join("")}</div>
+      <div class="seg" id="p-tabs">${[["doc", "Documenti"], ["dati", "Dati"], ["task", "Task"], ["diario", "Diario"]].map(([k, l]) => `<button data-t="${k}" class="${PCUR.tab === k ? "on" : ""}">${l}</button>`).join("")}</div>
       <div id="p-body"></div></main>${tabbar("p")}`;
   wireTabbar();
   $("#p-back").onclick = () => { if (history.length > 1 && document.referrer !== "x") history.back(); else location.hash = "#/"; };
@@ -579,6 +629,7 @@ function disegnaPratica(p, m) {
 function disegnaTab(p) {
   const body = $("#p-body"); if (!body) return;
   if (PCUR.tab === "dati") return tabDati(p, body);
+  if (PCUR.tab === "task") return tabTask(p, body);
   if (PCUR.tab === "diario") return tabDiario(p, body);
   return tabDoc(p, body);
 }
@@ -938,6 +989,227 @@ function editorPrev() {
   });
 }
 
+/* ================= file condivisi con il PC: modifica sicura ================= */
+async function jsonModifica(parts, campo, fn) {
+  for (let t = 0; t < 4; t++) {
+    const r = await readJSON(parts); const L = r?.data?.[campo] || [];
+    fn(L);
+    try { await writeJSON(parts, { app: "Pratiche Studio", aggiornato: new Date().toISOString(), [campo]: L }, r?.eTag, r ? null : "fail"); return L; }
+    catch (e) { if (e.status === 412 || e.status === 409) { await sleep(400); continue; } throw e; }
+  }
+  throw new Error("file modificato altrove proprio ora: riprova");
+}
+const ymd = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const domani = () => { const d = new Date(); d.setDate(d.getDate() + 1); return ymd(d); };
+const dataBreve = s => new Date(s + "T12:00:00").toLocaleDateString("it-IT", { day: "numeric", month: "short" });
+const giornoLungo = s => s === oggi() ? "Oggi" : s === domani() ? "Domani" : new Date(s + "T12:00:00").toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" });
+const nomePratica = p => `${p.codice || ""} ${titleCase(metaOf(p).committente || p.dir.replace(/^\d+-\d+_?/, ""))}`.trim();
+
+/* ================= Task (Lavoro\_task.json, condiviso con il PC) ================= */
+const PRIO = { u: ["Urgente", "#f87171"], h: ["Alta", "#fb923c"] };
+const taskCarica = async () => (D.task = (await readJSON(["_task.json"]))?.data?.task || []);
+const taskModifica = async fn => (D.task = await jsonModifica(["_task.json"], "task", fn));
+function taskRiga(x) {
+  const p = x.key && D.byKey[x.key], late = !x.done && x.due && x.due < oggi();
+  const dd = x.due ? (x.due === oggi() ? "Oggi" : x.due === domani() ? "Domani" : dataBreve(x.due)) : "";
+  const pr = PRIO[x.prio];
+  return `<div class="tk${x.done ? " done" : ""}" data-id="${esc(x.id)}"><button class="tk-c" data-chk aria-label="Fatto">${x.done ? I.ok : ""}</button>
+    <div class="tx"><b>${esc(x.t)}</b><div class="tk-m">${p ? `<span class="tk-p" style="--cc:${CATCOL[p.cat] || CATCOL.altro}"><i></i>${esc(p.codice || "")}${metaOf(p).committente ? " · " + esc(titleCase(cognome(metaOf(p)))) : ""}</span>` : x.cod ? `<span class="tk-p" style="--cc:#64748b"><i></i>${esc(x.cod)}</span>` : ""}${dd ? `<span class="${late ? "late" : ""}">${esc(dd)}${x.ora ? " " + esc(x.ora) : ""}</span>` : ""}</div></div>
+    ${pr ? `<span class="tk-f" style="--fc:${pr[1]}">⚑ ${pr[0]}</span>` : ""}</div>`;
+}
+function gruppiTask(L) {
+  const o = oggi(), ap = L.filter(x => !x.done), ord = (a, b) => ((a.due || "9") + (a.ora || "")).localeCompare((b.due || "9") + (b.ora || ""));
+  return [["Oggi e in ritardo", ap.filter(x => x.due && x.due <= o).sort(ord)], ["Prossimi", ap.filter(x => x.due > o).sort(ord)], ["Senza scadenza", ap.filter(x => !x.due)], ["Completati", L.filter(x => x.done).sort((a, b) => (a.fatto < b.fatto ? 1 : -1)).slice(0, 15)]];
+}
+function listaTask(el, key) {
+  const L = (D.task || []).filter(x => !key || x.key === key);
+  el.innerHTML = gruppiTask(L).filter(([, g]) => g.length).map(([t, g]) => `<div class="card tkc"><h3>${t} · ${g.length}</h3>${g.map(taskRiga).join("")}</div>`).join("") || `<div class="empty">Nessun task${key ? " per questa pratica" : ""}.<br>Premi + per aggiungerne uno.</div>`;
+  $$(".tk", el).forEach(r => { const x = D.task.find(y => y.id === r.dataset.id);
+    $("[data-chk]", r).onclick = async e => { e.stopPropagation(); r.classList.toggle("done");
+      try { await taskModifica(L => { const y = L.find(z => z.id === x.id); if (y) { y.done = !y.done; y.fatto = y.done ? new Date().toISOString() : ""; } }); if (!x.done && D.byKey[x.key]) logPratica(D.byKey[x.key], "Task completato: " + x.t, "manuale"); }
+      catch (er) { toast(er.message, true); } listaTask(el, key); };
+    r.onclick = () => editorTask(x, null, () => listaTask(el, key)); });
+}
+async function viewTask() {
+  app().innerHTML = `<header class="hdr"><div class="row"><h1>Task</h1><button class="ib" id="t-ref">${I.ref}</button><button class="ib" id="t-new">${I.plus}</button></div><div class="sub">Cose da fare, con scadenza e pratica collegata</div></header>
+    <main><div id="t-l"><div class="empty"><span class="spin"></span> Carico…</div></div></main>${tabbar("t")}`;
+  wireTabbar(); $("#t-new").onclick = () => editorTask(null, "", viewTask);
+  $("#t-ref").onclick = () => { D.task = null; viewTask(); };
+  if (!D.task) { try { await taskCarica(); } catch (e) { $("#t-l").innerHTML = `<div class="warn">${esc(e.message)}</div>`; return; } }
+  listaTask($("#t-l"));
+}
+function editorTask(x, keyPref, after) {
+  const nuovo = !x; x = x || { t: "", key: keyPref || "", due: oggi(), ora: "", prio: "" };
+  const aperte = D.prat.filter(p => !ST_CHIUSI.includes(statoOf(p)) || p.key === x.key).slice(0, 400);
+  sheet(nuovo ? "Nuovo task" : "Task", `<div class="f"><label>Cosa fare</label><input id="te-t" value="${esc(x.t)}" placeholder="es. Inviare CILA in Comune"></div>
+    <div class="f"><label>Pratica</label><select id="te-p"><option value="">— nessuna —</option>${aperte.map(p => `<option value="${esc(p.key)}" ${p.key === x.key ? "selected" : ""}>${esc(nomePratica(p))}</option>`).join("")}</select></div>
+    <div class="g2"><div class="f"><label>Scadenza</label><input id="te-d" type="date" value="${esc(x.due || "")}"></div><div class="f"><label>Ora</label><input id="te-o" type="time" value="${esc(x.ora || "")}"></div></div>
+    <div class="f"><label>Priorità</label><div class="seg" id="te-pr" style="margin:0">${[["", "Normale"], ["h", "Alta"], ["u", "Urgente"]].map(([k, l]) => `<button type="button" data-p="${k}" class="${(x.prio || "") === k ? "on" : ""}">${l}</button>`).join("")}</div></div>
+    ${gcal.ok() ? `<label class="hint" style="display:flex;gap:8px;align-items:center;margin:4px 0 12px"><input type="checkbox" id="te-g" ${x.gev ? "checked disabled" : ""}> Metti anche in agenda (Google Calendar)</label>` : ""}
+    <div class="row2">${nuovo ? `<button class="btn" data-n>Annulla</button>` : `<button class="btn bad" data-del>${I.trash}Elimina</button>`}<button class="btn pri" data-y>${I.ok}Salva</button></div>`, (bg, close) => {
+    let prio = x.prio || "";
+    $$("#te-pr button", bg).forEach(b => b.onclick = () => { prio = b.dataset.p; $$("#te-pr button", bg).forEach(z => z.classList.toggle("on", z === b)); });
+    const n = $("[data-n]", bg); if (n) n.onclick = close;
+    const d = $("[data-del]", bg); if (d) d.onclick = async () => { close();
+      try { await taskModifica(L => { const i = L.findIndex(z => z.id === x.id); if (i >= 0) L.splice(i, 1); }); if (x.gev) gcal.del(x.gev).catch(() => {}); toast("Task eliminato"); after ? after() : route(); } catch (e) { toast(e.message, true); } };
+    if (nuovo) setTimeout(() => $("#te-t", bg).focus(), 60);
+    $("[data-y]", bg).onclick = async () => {
+      const t = $("#te-t", bg).value.trim(); if (!t) return toast("Scrivi cosa fare", true);
+      const v = { t, key: $("#te-p", bg).value, due: $("#te-d", bg).value, ora: $("#te-o", bg).value, prio };
+      const p = v.key && D.byKey[v.key]; v.cod = p?.codice || "";
+      const b = $("[data-y]", bg); b.disabled = true;
+      try {
+        const id = x.id || "tk" + Date.now().toString(36);
+        if ($("#te-g", bg)?.checked && !x.gev && v.due) { try { v.gev = (await gcal.add(eventoPratica(v.t, v.due, v.ora, 60, p))).id; } catch (e) { toast("Task salvato, ma non in agenda: " + e.message, true); } }
+        await taskModifica(L => { const y = L.find(z => z.id === id); if (y) Object.assign(y, v); else L.push({ id, creato: new Date().toISOString(), done: false, ...v }); });
+        if (nuovo && p) logPratica(p, "Nuovo task: " + t, "manuale");
+        close(); toast("Task salvato"); after ? after() : route();
+      } catch (e) { b.disabled = false; toast("Non salvato: " + e.message, true); }
+    };
+  });
+}
+function tabTask(p, body) {
+  body.innerHTML = `<div class="row2" style="margin-top:6px"><button class="btn" id="pt-n">${I.plus}Task</button><button class="btn" id="pt-e">${I.cal}Appuntamento</button></div><div id="pt-l"><div class="empty"><span class="spin"></span></div></div>`;
+  const draw = () => listaTask($("#pt-l", body), p.key);
+  $("#pt-n", body).onclick = () => editorTask(null, p.key, draw);
+  $("#pt-e", body).onclick = () => gcal.ok() ? editorEvento(p) : (location.hash = "#/agenda");
+  (D.task ? Promise.resolve() : taskCarica()).then(draw).catch(e => { $("#pt-l", body).innerHTML = `<div class="warn">${esc(e.message)}</div>`; });
+}
+
+/* ================= Agenda: Google Calendar (lo stesso dell'iPhone) ================= */
+const GSCOPE = "https://www.googleapis.com/auth/calendar.events";
+const gcal = {
+  get id() { return window.PS_GOOGLE_ID || ""; },
+  tok() { const t = ls.get("ps_gtok", null); return t && Date.now() < t.exp ? t.at : ""; },
+  ok() { return !!this.id && !!ls.get("ps_gcal_on", false); },
+  login(silenzioso) { const q = new URLSearchParams({ client_id: this.id, redirect_uri: REDIRECT, response_type: "token", scope: GSCOPE, state: "gcal", include_granted_scopes: "true", login_hint: "piedavidecoppola@gmail.com" }); if (silenzioso) q.set("prompt", "none"); location.href = "https://accounts.google.com/o/oauth2/v2/auth?" + q; },
+  async f(path, opt = {}) {
+    const at = this.tok(); if (!at) { this.login(true); await new Promise(() => {}); }
+    const r = await fetch("https://www.googleapis.com/calendar/v3/calendars/primary" + path, { ...opt, headers: { Authorization: "Bearer " + at, "Content-Type": "application/json" }, signal: tmo(30000) });
+    if (r.status === 401) { ls.del("ps_gtok"); this.login(true); await new Promise(() => {}); }
+    if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error?.message || "errore " + r.status); }
+    return r.status === 204 ? null : r.json();
+  },
+  list(da, a) { return this.f(`/events?singleEvents=true&orderBy=startTime&maxResults=250&timeMin=${encodeURIComponent(da.toISOString())}&timeMax=${encodeURIComponent(a.toISOString())}`); },
+  add(ev) { return this.f("/events", { method: "POST", body: JSON.stringify(ev) }); },
+  del(id) { return this.f("/events/" + encodeURIComponent(id), { method: "DELETE" }); },
+};
+function gcalRedirect() {   // ritorno dall'accesso Google: #access_token=…&state=gcal
+  const q = new URLSearchParams(location.hash.slice(1));
+  if (q.get("state") !== "gcal") return;
+  if (q.get("access_token")) { ls.set("ps_gtok", { at: q.get("access_token"), exp: Date.now() + ((+q.get("expires_in") || 3600) - 120) * 1000 }); ls.set("ps_gcal_on", true); }
+  else if (q.get("error")) { ls.set("ps_gcal_on", false); if (!/interaction_required|login_required|consent_required/.test(q.get("error"))) setTimeout(() => toast("Google: " + q.get("error"), true), 500); }
+  history.replaceState(null, "", REDIRECT + "#/agenda");
+}
+function eventoPratica(titolo, data, ora, min, p) {
+  const m = p ? metaOf(p) : {}, ev = { summary: titolo };
+  if (p) { const loc = [m.indirizzo, m.comune].filter(Boolean).join(", "); if (loc) ev.location = loc; ev.description = `Pratica ${p.codice} – ${titleCase(m.committente || "")}${m.telefono ? "\nTel. " + m.telefono : ""}`; }
+  if (ora) { const s = new Date(`${data}T${ora}:00`); ev.start = { dateTime: s.toISOString() }; ev.end = { dateTime: new Date(s.getTime() + min * 60e3).toISOString() }; }
+  else { const e = new Date(data + "T12:00:00"); e.setDate(e.getDate() + 1); ev.start = { date: data }; ev.end = { date: ymd(e) }; }
+  return ev;
+}
+async function viewAgenda() {
+  app().innerHTML = `<header class="hdr"><div class="row"><h1>Agenda</h1><button class="ib" id="a-ref">${I.ref}</button><button class="ib" id="a-new">${I.plus}</button></div><div class="sub">Google Calendar · prossimi 30 giorni, con i task in scadenza</div></header><main><div id="a-l"></div></main>${tabbar("a")}`;
+  wireTabbar(); const el = $("#a-l");
+  $("#a-new").onclick = () => gcal.ok() ? editorEvento() : toast("Collega prima Google Calendar", true);
+  $("#a-ref").onclick = viewAgenda;
+  if (!gcal.id) { el.innerHTML = `<div class="card"><p style="margin:0">Agenda non ancora configurata.</p></div>`; return; }
+  if (!gcal.ok()) { el.innerHTML = `<div class="card" style="text-align:center"><p style="margin-top:0">Collega il calendario Google che usi sull'iPhone: gli appuntamenti si vedono qui e sul telefono, e puoi aggiungerli dalle pratiche e dai task.</p><button class="btn pri full" id="a-con">${I.cal}Collega Google Calendar</button></div>`; $("#a-con").onclick = () => gcal.login(false); return; }
+  el.innerHTML = `<div class="empty"><span class="spin"></span> Carico l'agenda…</div>`;
+  if (!D.task) await taskCarica().catch(() => {});
+  const da = new Date(); da.setHours(0, 0, 0, 0); const a = new Date(da); a.setDate(a.getDate() + 30);
+  let evs;
+  try { evs = (await gcal.list(da, a)).items || []; } catch (e) { el.innerHTML = `<div class="warn">Agenda non disponibile: ${esc(e.message)}</div>`; return; }
+  const G = {}, put = (d, o) => (G[d] = G[d] || []).push(o);
+  evs.forEach(e => put(e.start.dateTime ? ymd(new Date(e.start.dateTime)) : e.start.date, { ev: e, ora: e.start.dateTime ? new Date(e.start.dateTime).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }) : "" }));
+  (D.task || []).filter(x => !x.done && x.due && !x.gev).forEach(x => put(x.due < oggi() ? oggi() : x.due, { tk: x, ora: x.ora || "" }));
+  const giorni = Object.keys(G).filter(d => d >= oggi() && d <= ymd(a)).sort();
+  el.innerHTML = giorni.map(d => `<div class="card ag"><h3>${esc(giornoLungo(d))}</h3>${G[d].sort((p, q) => (p.ora || "").localeCompare(q.ora || "")).map(o => o.ev
+    ? `<div class="ag-r" data-e="${esc(o.ev.id)}"><span class="ag-o">${esc(o.ora || "giornata")}</span><span class="ag-bar"></span><div class="tx"><b>${esc(o.ev.summary || "(senza titolo)")}</b>${o.ev.location ? `<small>${esc(o.ev.location)}</small>` : ""}</div></div>`
+    : `<div class="ag-r" data-t="${esc(o.tk.id)}"><span class="ag-o">${esc(o.ora)}</span><span class="ag-bar" style="background:var(--gold)"></span><div class="tx"><b>${esc(o.tk.t)}</b><small>Task${o.tk.due < oggi() ? " in ritardo" : ""}${o.tk.cod ? " · " + esc(o.tk.cod) : ""}</small></div></div>`).join("")}</div>`).join("") || `<div class="empty">Nessun appuntamento nei prossimi 30 giorni</div>`;
+  $$("[data-e]", el).forEach(r => r.onclick = () => dettaglioEvento(evs.find(e => e.id === r.dataset.e)));
+  $$("[data-t]", el).forEach(r => r.onclick = () => editorTask(D.task.find(x => x.id === r.dataset.t), null, viewAgenda));
+}
+function editorEvento(p0) {
+  const aperte = D.prat.filter(p => !ST_CHIUSI.includes(statoOf(p)) || p === p0).slice(0, 400);
+  sheet("Nuovo appuntamento", `<div class="f"><label>Titolo</label><input id="ev-t" value="${esc(p0 ? "Sopralluogo " + (titleCase(cognome(metaOf(p0))) || p0.codice) : "")}"></div>
+    <div class="f"><label>Pratica</label><select id="ev-p"><option value="">— nessuna —</option>${aperte.map(p => `<option value="${esc(p.key)}" ${p === p0 ? "selected" : ""}>${esc(nomePratica(p))}</option>`).join("")}</select></div>
+    <div class="g2"><div class="f"><label>Data</label><input id="ev-d" type="date" value="${oggi()}"></div><div class="f"><label>Ora</label><input id="ev-o" type="time" value="09:00"></div></div>
+    <div class="f"><label>Durata</label><select id="ev-m"><option value="30">30 min</option><option value="60" selected>1 ora</option><option value="90">1 ora e mezza</option><option value="120">2 ore</option><option value="0">Tutto il giorno</option></select></div>
+    <div class="row2"><button class="btn" data-n>Annulla</button><button class="btn pri" data-y>${I.ok}Aggiungi</button></div>`, (bg, close) => {
+    $("[data-n]", bg).onclick = close;
+    $("[data-y]", bg).onclick = async () => {
+      const t = $("#ev-t", bg).value.trim(), d = $("#ev-d", bg).value, min = +$("#ev-m", bg).value, ora = min ? $("#ev-o", bg).value : ""; if (!t || !d) return toast("Scrivi titolo e data", true);
+      const p = D.byKey[$("#ev-p", bg).value], b = $("[data-y]", bg); b.disabled = true;
+      try { await gcal.add(eventoPratica(t, d, ora, min || 60, p)); close(); toast("Aggiunto all'agenda"); if (p) logPratica(p, `Appuntamento: ${t} – ${dataIt(d)}${ora ? " " + ora : ""}`, "data"); if (location.hash === "#/agenda") viewAgenda(); }
+      catch (e) { b.disabled = false; toast("Non aggiunto: " + e.message, true); }
+    };
+  });
+}
+function dettaglioEvento(e) {
+  if (!e) return;
+  const t = e.start.dateTime ? new Date(e.start.dateTime).toLocaleString("it-IT", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }) : giornoLungo(e.start.date) + " · tutto il giorno";
+  sheet(e.summary || "(senza titolo)", `<p class="hint" style="margin:0 4px 10px">${esc(t)}</p>${e.location ? `<a class="opt" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(e.location)}" target="_blank" rel="noopener">${I.map}${esc(e.location)}</a>` : ""}${e.description ? `<p style="margin:10px 4px;white-space:pre-wrap">${esc(e.description.replace(/<[^>]+>/g, " "))}</p>` : ""}
+    <a class="opt" href="${esc(e.htmlLink)}" target="_blank" rel="noopener">${I.ext}Apri in Google Calendar</a><button class="opt bad" data-del>${I.trash}Elimina appuntamento</button>`, (bg, close) => {
+    $("[data-del]", bg).onclick = async () => { if (!(await conferma("Elimina", "Eliminare l'appuntamento dal calendario?", "Elimina", true))) return; close(); try { await gcal.del(e.id); toast("Eliminato"); viewAgenda(); } catch (er) { toast(er.message, true); } };
+  });
+}
+
+/* ================= Clienti (dalle pratiche + Lavoro\_clienti.json) ================= */
+const cliKey = n => norm(n).replace(/[^a-z0-9]+/g, " ").trim();
+const clientiCarica = async () => (D.cli = (await readJSON(["_clienti.json"]))?.data?.clienti || []);
+const clientiModifica = async fn => (D.cli = await jsonModifica(["_clienti.json"], "clienti", fn));
+const iniziali = n => n.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join("").toUpperCase();
+function elencoClienti() {
+  const M = {};
+  const add = (nome, o, p) => { nome = String(nome || "").trim(); if (nome.length < 3) return; const k = cliKey(nome);
+    const c = M[k] = M[k] || { k, nome: titleCase(nome), telefono: "", email: "", indirizzo: "", cf: "", pratiche: [] };
+    for (const f of ["telefono", "email", "indirizzo", "cf"]) if (!c[f] && o[f]) c[f] = String(o[f]).trim();
+    if (p) c.pratiche.push(p); };
+  for (const p of D.prat) { const m = metaOf(p); add(m.committente, { telefono: m.telefono, email: m.email, indirizzo: m.residenza, cf: m.cf }, p); }
+  for (const x of D.prev || []) add(x.dest, { telefono: x.telefono, email: x.email, indirizzo: x.destInd }, null);
+  for (const s of D.cli || []) { const k = s.k || cliKey(s.nome); if (s.nascosto) { delete M[k]; continue; }
+    const c = M[k] = M[k] || { k, nome: s.nome, pratiche: [] }; for (const [f, v] of Object.entries(s)) if (v && f !== "k") c[f] = v; }
+  return Object.values(M).sort((a, b) => a.nome.localeCompare(b.nome, "it"));
+}
+let CL_Q = "";
+async function viewClienti() {
+  app().innerHTML = `<header class="hdr"><div class="row"><h1>Clienti</h1><button class="ib" id="c-new">${I.plus}</button></div><div class="search"><input type="search" id="c-q" placeholder="Cerca nome, telefono, email…" value="${esc(CL_Q)}"></div></header><main><div class="list" id="c-l"><div class="empty"><span class="spin"></span> Carico…</div></div></main>${tabbar("c")}`;
+  wireTabbar(); $("#c-new").onclick = () => editorCliente(null);
+  await Promise.all([D.cli ? 0 : clientiCarica().catch(() => (D.cli = [])), D.prev ? 0 : prevCarica().catch(() => {})]);
+  const draw = () => { const toks = norm(CL_Q).split(/\s+/).filter(Boolean), el = $("#c-l"); if (!el) return;
+    const L = elencoClienti().filter(c => toks.every(t => norm([c.nome, c.telefono, c.email, c.indirizzo, c.cf].join(" ")).includes(t)));
+    el.innerHTML = L.slice(0, 400).map(c => `<div class="pr" data-k="${esc(c.k)}"><span class="av">${esc(iniziali(c.nome))}</span><div class="tx"><b>${esc(c.nome)}</b><small>${esc([c.telefono, c.email].filter(Boolean).join(" · ") || "nessun contatto")}</small>${c.indirizzo ? `<small>${esc(c.indirizzo)}</small>` : ""}</div>${c.pratiche.length ? `<span class="st" style="--sc:#7aa7ff">${c.pratiche.length} prat.</span>` : ""}</div>`).join("") + (L.length ? `<div class="more">${L.length} clienti</div>` : `<div class="empty">Nessun cliente</div>`);
+    $$(".pr", el).forEach(r => r.onclick = () => schedaCliente(L.find(c => c.k === r.dataset.k))); };
+  let t; $("#c-q").oninput = e => { clearTimeout(t); t = setTimeout(() => { CL_Q = e.target.value; draw(); }, 120); };
+  draw();
+}
+function schedaCliente(c) {
+  const tel = String(c.telefono || "").replace(/[^\d+]/g, ""), wa = tel ? (tel.startsWith("+") ? tel.slice(1) : tel.startsWith("00") ? tel.slice(2) : "39" + tel) : "";
+  sheet(c.nome, `<div class="acts" style="margin:0 0 12px">${[[tel, "tel:" + tel, I.phone, "Chiama"], [wa, "https://wa.me/" + wa, I.chat, "WhatsApp"], [c.email, "mailto:" + (c.email || ""), I.mail, "E-mail"], [c.indirizzo, "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(c.indirizzo || ""), I.map, "Mappa"]].map(([ok, h, ic, l]) => `<a class="act cl ${ok ? "" : "off"}" href="${esc(h)}" target="_blank" rel="noopener">${ic}${l}</a>`).join("")}</div>
+    <dl class="kv">${[["Telefono", c.telefono], ["E-mail", c.email], ["Indirizzo", c.indirizzo], ["C.F. / P.IVA", c.cf], ["Note", c.note]].filter(([, v]) => v).map(([l, v]) => `<dt>${l}</dt><dd>${esc(v)}</dd>`).join("")}</dl>
+    ${c.pratiche.length ? `<h3 style="margin:14px 4px 6px;font-size:13px;color:var(--muted)">PRATICHE</h3>${c.pratiche.map(p => `<button class="opt" data-p="${esc(p.key)}"><span class="cod" style="--cc:${CATCOL[p.cat] || CATCOL.altro};min-width:52px;font-size:12px;padding:4px">${esc(p.codice || "—")}</span>${esc(metaOf(p).tipo || p.dir)}</button>`).join("")}` : ""}
+    <div class="row2" style="margin-top:12px"><button class="btn full" data-ed>${I.edit}Modifica</button></div>`, (bg, close) => {
+    $$("[data-p]", bg).forEach(b => b.onclick = () => { close(); location.hash = "#/p/" + encodeURIComponent(b.dataset.p); });
+    $("[data-ed]", bg).onclick = () => { close(); editorCliente(c); };
+  });
+}
+function editorCliente(c) {
+  const nuovo = !c; c = c || { nome: "" };
+  sheet(nuovo ? "Nuovo cliente" : "Modifica cliente", `${[["nome", "Cognome e nome", "words"], ["telefono", "Telefono", "tel"], ["email", "E-mail", "email"], ["indirizzo", "Indirizzo (residenza / sede)"], ["cf", "Codice fiscale / P.IVA"], ["note", "Note", "area"]].map(([k, l, t]) => `<div class="f"><label>${l}</label>${t === "area" ? `<textarea name="${k}" rows="2">${esc(c[k] || "")}</textarea>` : `<input name="${k}" value="${esc(c[k] || "")}" ${t === "tel" ? 'type="tel"' : t === "email" ? 'type="email" autocapitalize="off"' : t === "words" ? 'autocapitalize="words"' : ""}>`}</div>`).join("")}
+    <div class="row2">${nuovo ? `<button class="btn" data-n>Annulla</button>` : `<button class="btn bad" data-del>${I.trash}Nascondi</button>`}<button class="btn pri" data-y>${I.ok}Salva</button></div>`, (bg, close) => {
+    const n = $("[data-n]", bg); if (n) n.onclick = close;
+    const d = $("[data-del]", bg); if (d) d.onclick = async () => { if (!(await conferma("Nascondi cliente", "Il cliente non comparirà più nella rubrica (le pratiche restano).", "Nascondi", true))) return; close();
+      try { await clientiModifica(L => { const y = L.find(z => z.k === c.k); if (y) y.nascosto = true; else L.push({ k: c.k, nome: c.nome, nascosto: true }); }); viewClienti(); } catch (e) { toast(e.message, true); } };
+    $("[data-y]", bg).onclick = async () => {
+      const v = {}; $$("[name]", bg).forEach(i => v[i.name] = i.value.trim()); if (!v.nome) return toast("Scrivi il nome", true);
+      const k = nuovo ? cliKey(v.nome) : c.k;
+      try { await clientiModifica(L => { const y = L.find(z => z.k === k); if (y) Object.assign(y, v, { agg: new Date().toISOString() }); else L.push({ k, ...v, agg: new Date().toISOString() }); }); close(); toast("Cliente salvato"); viewClienti(); }
+      catch (e) { toast("Non salvato: " + e.message, true); }
+    };
+  });
+}
+
 /* ================= avvio e navigazione ================= */
 function route() {
   const h = location.hash || "#/";
@@ -945,9 +1217,13 @@ function route() {
   if ((m = /^#\/p\/(.+)$/.exec(h))) return viewPratica(decodeURIComponent(m[1]));
   if (h === "#/nuova") return viewNuova();
   if (h === "#/preventivi") return viewPreventivi();
+  if (h === "#/task") return viewTask();
+  if (h === "#/agenda") return viewAgenda();
+  if (h === "#/clienti") return viewClienti();
   return viewLista();
 }
 async function avvio() {
+  gcalRedirect();
   if (!CFG.clientId) return viewSetup();
   try { await handleRedirect(); } catch (e) { return viewLogin("Accesso non riuscito: " + e.message); }
   if (!TOK?.rt && !TOK?.at) return viewLogin();
