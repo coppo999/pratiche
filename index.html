@@ -1109,7 +1109,7 @@ function eventoPratica(titolo, data, ora, min, p) {
   return ev;
 }
 async function viewAgenda() {
-  app().innerHTML = `<header class="hdr"><div class="row"><h1>Agenda</h1><button class="ib" id="a-ref">${I.ref}</button><button class="ib" id="a-new">${I.plus}</button></div><div class="sub">Google Calendar · prossimi 30 giorni, con i task in scadenza</div></header><main><div id="a-l"></div></main>${tabbar("a")}`;
+  app().innerHTML = `<header class="hdr"><div class="row"><h1>Agenda</h1><button class="ib" id="a-ref">${I.ref}</button><button class="ib" id="a-new">${I.plus}</button></div><div class="sub">Google Calendar · prossimi 30 giorni</div></header><main><div id="a-l"></div></main>${tabbar("a")}`;
   wireTabbar(); const el = $("#a-l");
   $("#a-new").onclick = () => gcal.ok() ? editorEvento() : toast("Collega prima Google Calendar", true);
   $("#a-ref").onclick = viewAgenda;
@@ -1122,7 +1122,6 @@ async function viewAgenda() {
   try { evs = (await gcal.list(da, a)).items || []; } catch (e) { el.innerHTML = `<div class="warn">Agenda non disponibile: ${esc(e.message)}</div>`; return; }
   const G = {}, put = (d, o) => (G[d] = G[d] || []).push(o);
   evs.forEach(e => put(e.start.dateTime ? ymd(new Date(e.start.dateTime)) : e.start.date, { ev: e, ora: e.start.dateTime ? new Date(e.start.dateTime).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }) : "" }));
-  (D.task || []).filter(x => !x.done && x.due && !x.gev).forEach(x => put(x.due < oggi() ? oggi() : x.due, { tk: x, ora: x.ora || "" }));
   const giorni = Object.keys(G).filter(d => d >= oggi() && d <= ymd(a)).sort();
   el.innerHTML = giorni.map(d => `<div class="card ag"><h3>${esc(giornoLungo(d))}</h3>${G[d].sort((p, q) => (p.ora || "").localeCompare(q.ora || "")).map(o => o.ev
     ? `<div class="ag-r" data-e="${esc(o.ev.id)}"><span class="ag-o">${esc(o.ora || "giornata")}</span><span class="ag-bar"></span><div class="tx"><b>${esc(o.ev.summary || "(senza titolo)")}</b>${o.ev.location ? `<small>${esc(o.ev.location)}</small>` : ""}</div></div>`
