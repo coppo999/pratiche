@@ -604,7 +604,7 @@ function disegnaPratica(p, m) {
       <div class="card"><div class="stbar"><span class="dot" id="p-dot" style="background:${ST_COL[st] || "#94a3b8"}"></span>
         <select id="p-st" class="f" style="margin:0;border:1px solid var(--line);background:var(--panel2);border-radius:11px;padding:10px;font-size:16px">${Object.entries(STATI).map(([k, l]) => `<option value="${k}" ${st === k ? "selected" : ""}>${esc(l)}</option>`).join("")}${st ? "" : `<option value="" selected>Imposta stato…</option>`}</select></div>
         <div class="f" style="margin:10px 0 0"><input id="p-nt" placeholder="Nota: es. inviata in Comune il 12/10 – prot. 12345" value="${esc(m.notaBreve || "")}"></div><div class="ok" id="p-ok"></div></div>
-      <div class="seg" id="p-tabs">${[["doc", "Documenti"], ["dati", "Dati"], ["conto", "Conto"], ["task", "Task"], ["diario", "Diario"]].map(([k, l]) => `<button data-t="${k}" class="${PCUR.tab === k ? "on" : ""}">${l}</button>`).join("")}</div>
+      <div class="seg" id="p-tabs">${[["doc", "Documenti"], ["dati", "Dati"], ["conto", "Conto"], ["cont", "Contabilità"], ["task", "Task"], ["diario", "Diario"]].map(([k, l]) => `<button data-t="${k}" class="${PCUR.tab === k ? "on" : ""}">${l}</button>`).join("")}</div>
       <div id="p-body"></div></main>${tabbar("p")}`;
   wireTabbar();
   $("#p-back").onclick = () => { if (history.length > 1 && document.referrer !== "x") history.back(); else location.hash = "#/"; };
@@ -631,6 +631,7 @@ function disegnaTab(p) {
   if (PCUR.tab === "dati") return tabDati(p, body);
   if (PCUR.tab === "task") return tabTask(p, body);
   if (PCUR.tab === "conto") return tabConto(p, body);
+  if (PCUR.tab === "cont") return tabCont(p, body);
   if (PCUR.tab === "diario") return tabDiario(p, body);
   return tabDoc(p, body);
 }
@@ -724,6 +725,26 @@ function menuFile(p, x, body) {
 const CAMPI = [["committente", "Committente (cognome e nome)"], ["telefono", "Telefono", "tel"], ["email", "E-mail", "email"], ["cf", "Codice fiscale / P.IVA"], ["canale", "Canale / agenzia"], ["compenso", "Compenso concordato €", "decimal"],
   ["indirizzo", "Indirizzo"], ["comune", "Comune"], ["provincia", "Prov."], ["foglio", "Foglio"], ["mappale", "Mappale"], ["sub", "Sub."], ["categoria", "Categoria"], ["piano", "Piano / interno"],
   ["residenza", "Residenza"], ["nascitaLuogo", "Luogo di nascita"], ["nascitaData", "Data di nascita", "date"], ["descrizione", "Descrizione lavori", "area"], ["note", "Note", "area"]];
+/* Contabilità della pratica: fatture, spese e costi (da _sync/fatture_per_pratica.json, scritto dal PC) */
+async function tabCont(p, body) {
+  body.innerHTML = `<div class="muted">Carico…</div>`;
+  let j = null;
+  try { j = await readJSON(["_sync", "fatture_per_pratica.json"]); } catch (e) { j = null; }
+  if (!j) { body.innerHTML = `<div class="muted">Dati contabili non disponibili.</div>`; return; }
+  const ag = j.aggiornatoUTC ? new Date(j.aggiornatoUTC).toLocaleString("it-IT") : "";
+  const c = (p.codice && (j.pratiche || {})[p.codice]) || null;
+  if (!c) { body.innerHTML = `<div class="muted">Nessuna fattura o spesa collegata a questa pratica.</div><div class="muted" style="font-size:12px;margin-top:8px">Aggiornato al ${esc(ag)}</div>`; return; }
+  const t = c.totali;
+  const kpi = (l, v) => `<div style="flex:1;min-width:110px;padding:10px;border-radius:10px;background:rgba(127,127,127,.12)"><div style="font-size:12px;opacity:.7">${l}</div><div style="font-size:16px;font-weight:700">${eur(v)}</div></div>`;
+  const lista = (titolo, righe) => `<h3 style="margin:14px 0 6px">${titolo} · ${righe.length}</h3>` + (righe.length ? righe.join("") : `<div class="muted">Nessuno.</div>`);
+  const riga = (a, b, c2) => `<div style="display:flex;justify-content:space-between;gap:8px;padding:7px 0;border-bottom:1px solid rgba(127,127,127,.2);font-size:14px"><span>${a}<br><span style="font-size:12px;opacity:.7">${b}</span></span><b style="white-space:nowrap">${c2}</b></div>`;
+  body.innerHTML = `
+    <div style="display:flex;gap:8px;flex-wrap:wrap">${kpi("Fatturato", t.fatturato)}${kpi("Incassato", t.incassato)}${kpi("Da incassare", t.daIncassare)}${kpi("Spese", t.spese)}${kpi("Costi esterni", t.esterni)}</div>
+    ${lista("Fatture", c.fatture.map(f => riga(esc(f.cliente) + " · n. " + esc(f.numero), dataIt(f.data) + " · " + esc(f.tipo) + " · " + (f.stato === "incassato" ? "incassata" : "da incassare"), eur(f.totale))))}
+    ${lista("Spese anticipate", c.spese.map(x => riga(esc(x.descrizione || x.categoria), dataIt(x.data) + " · " + esc(x.categoria), eur(x.importo))))}
+    ${lista("Costi esterni", c.esterni.map(x => riga(esc(x.soggetto), dataIt(x.data) + " · " + esc(x.stato), eur(x.importo))))}
+    <div class="muted" style="font-size:12px;margin-top:12px">Aggiornato al ${esc(ag)}</div>`;
+}
 function tabDati(p, body) {
   const m = PCUR.meta || metaOf(p);
   const righe = CAMPI.filter(([k]) => m[k]).map(([k, l]) => `<dt>${esc(l.replace(/ \(.*\)/, ""))}</dt><dd>${k === "compenso" ? eur(num(m[k])) : k === "nascitaData" ? esc(dataIt(m[k])) : esc(m[k]).replace(/\n/g, "<br>")}</dd>`).join("");
