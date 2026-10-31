@@ -604,7 +604,7 @@ function disegnaPratica(p, m) {
       <div class="card"><div class="stbar"><span class="dot" id="p-dot" style="background:${ST_COL[st] || "#94a3b8"}"></span>
         <select id="p-st" class="f" style="margin:0;border:1px solid var(--line);background:var(--panel2);border-radius:11px;padding:10px;font-size:16px">${Object.entries(STATI).map(([k, l]) => `<option value="${k}" ${st === k ? "selected" : ""}>${esc(l)}</option>`).join("")}${st ? "" : `<option value="" selected>Imposta stato…</option>`}</select></div>
         <div class="f" style="margin:10px 0 0"><input id="p-nt" placeholder="Nota: es. inviata in Comune il 12/10 – prot. 12345" value="${esc(m.notaBreve || "")}"></div><div class="ok" id="p-ok"></div></div>
-      <div class="seg" id="p-tabs">${[["doc", "Documenti"], ["dati", "Dati"], ["task", "Task"], ["diario", "Diario"]].map(([k, l]) => `<button data-t="${k}" class="${PCUR.tab === k ? "on" : ""}">${l}</button>`).join("")}</div>
+      <div class="seg" id="p-tabs">${[["doc", "Documenti"], ["dati", "Dati"], ["conto", "Conto"], ["task", "Task"], ["diario", "Diario"]].map(([k, l]) => `<button data-t="${k}" class="${PCUR.tab === k ? "on" : ""}">${l}</button>`).join("")}</div>
       <div id="p-body"></div></main>${tabbar("p")}`;
   wireTabbar();
   $("#p-back").onclick = () => { if (history.length > 1 && document.referrer !== "x") history.back(); else location.hash = "#/"; };
@@ -630,6 +630,7 @@ function disegnaTab(p) {
   const body = $("#p-body"); if (!body) return;
   if (PCUR.tab === "dati") return tabDati(p, body);
   if (PCUR.tab === "task") return tabTask(p, body);
+  if (PCUR.tab === "conto") return tabConto(p, body);
   if (PCUR.tab === "diario") return tabDiario(p, body);
   return tabDoc(p, body);
 }
@@ -987,6 +988,44 @@ function editorPrev() {
     };
     draw();
   });
+}
+
+/* ================= Conto: preventivo, pagamenti, spese anticipate ================= */
+function contoDi(m) {
+  const c = JSON.parse(JSON.stringify(m.conto || {}));
+  if (c.totale == null || c.totale === "") { const pv = (m.preventivi || []).slice(-1)[0]; c.totale = num(pv?.totale) || num(m.compenso) || 0; c.auto = true; }
+  c.pagamenti = c.pagamenti || []; c.spese = c.spese || [];
+  const pag = c.pagamenti.reduce((s, x) => s + num(x.importo), 0), sp = c.spese.reduce((s, x) => s + num(x.importo), 0);
+  return { c, pag, sp, rest: Math.round((num(c.totale) + sp - pag) * 100) / 100 };
+}
+const salvaConto = (p, fn, log) => modificaMeta(p, mm => { const { c } = contoDi(mm); fn(c); delete c.auto; mm.conto = c; if (log) diarioPush(mm, log + " (dal telefono)", "euro"); });
+function tabConto(p, body) {
+  const m = PCUR.meta || metaOf(p), { c, pag, sp, rest } = contoDi(m);
+  const riga = (x, i, k) => `<div class="ag-r" data-k="${k}" data-i="${i}"><span class="ag-o">${esc(dataBreve(x.data || oggi()))}</span><span class="ag-bar" style="background:${k === "pagamenti" ? "#22c55e" : "var(--gold)"}"></span><div class="tx"><b>${eur(num(x.importo))}</b><small>${esc(x.nota || x.descr || (k === "pagamenti" ? "Pagamento" : "Spesa"))}${x.modo ? " · " + esc(x.modo) : ""}</small></div></div>`;
+  body.innerHTML = `<div class="card"><div class="g2" style="gap:12px">
+      <div id="ct-tot" style="cursor:pointer"><div class="hint">TOTALE ✎</div><b style="font-size:20px">${eur(num(c.totale))}</b>${c.nota ? `<div class="hint">${esc(c.nota)}</div>` : ""}</div>
+      <div><div class="hint">RIMANENZA</div><b style="font-size:20px;color:${rest > 0.004 ? "#fbbf24" : "#4ade80"}">${eur(rest)}</b>${rest <= 0.004 && num(c.totale) ? `<div class="hint" style="color:#4ade80">✓ saldato</div>` : ""}</div>
+      <div><div class="hint">PAGATO</div><b>${eur(pag)}</b></div><div><div class="hint">SPESE ANTICIPATE</div><b>${eur(sp)}</b></div></div></div>
+    <div class="row2"><button class="btn pri" id="ct-np">${I.plus}Pagamento</button><button class="btn" id="ct-ns">${I.plus}Spesa anticipata</button></div>
+    <div class="card ag"><h3>Pagamenti</h3>${c.pagamenti.map((x, i) => riga(x, i, "pagamenti")).join("") || `<div class="hint">Nessun pagamento</div>`}</div>
+    <div class="card ag"><h3>Spese anticipate</h3>${c.spese.map((x, i) => riga(x, i, "spese")).join("") || `<div class="hint">Es. diritti di segreteria, bolli, visure</div>`}</div>`;
+  const redraw = () => { if (PCUR.tab === "conto") tabConto(p, body); };
+  const save = async (fn, log, close) => { try { PCUR.meta = await salvaConto(p, fn, log); close(); redraw(); } catch (e) { toast("Non salvato: " + e.message, true); } };
+  $("#ct-tot", body).onclick = () => sheet("Totale preventivo", `<div class="f"><label>Totale €</label><input id="ct-v" inputmode="decimal" value="${esc(String(c.totale || ""))}"></div><div class="f"><label>Nota</label><input id="ct-n" value="${esc(c.nota || "")}"></div><div class="row2"><button class="btn" data-n>Annulla</button><button class="btn pri" data-y>${I.ok}Salva</button></div>`, (bg, close) => {
+    $("[data-n]", bg).onclick = close; $("[data-y]", bg).onclick = () => { const v = num($("#ct-v", bg).value), n = $("#ct-n", bg).value.trim(); save(c => { c.totale = v; c.nota = n; }, "Totale preventivo: " + eur(v), close); }; });
+  const editor = (k, i) => { const nuovo = i == null, pg = k === "pagamenti", x = nuovo ? { data: oggi(), importo: pg && rest > 0 ? rest : "" } : c[k][i];
+    sheet((nuovo ? "Nuovo " : "") + (pg ? "pagamento" : "spesa anticipata"), `<div class="g2"><div class="f"><label>Data</label><input type="date" id="ce-d" value="${esc(x.data || "")}"></div><div class="f"><label>Importo €</label><input id="ce-i" inputmode="decimal" value="${esc(String(x.importo ?? ""))}"></div></div>
+      ${pg ? `<div class="f"><label>Modalità</label><select id="ce-m">${["Bonifico", "Contanti", "Assegno", "POS / carta", "Altro"].map(o => `<option ${x.modo === o ? "selected" : ""}>${o}</option>`).join("")}</select></div>` : ""}
+      <div class="f"><label>${pg ? "Nota (es. acconto, saldo)" : "Descrizione (es. diritti di segreteria)"}</label><input id="ce-n" value="${esc(x.nota || x.descr || "")}"></div>
+      <div class="row2">${nuovo ? `<button class="btn" data-n>Annulla</button>` : `<button class="btn bad" data-del>${I.trash}Elimina</button>`}<button class="btn pri" data-y>${I.ok}Salva</button></div>`, (bg, close) => {
+      const n0 = $("[data-n]", bg); if (n0) n0.onclick = close;
+      const d = $("[data-del]", bg); if (d) d.onclick = () => save(c => c[k].splice(i, 1), `${pg ? "Pagamento" : "Spesa"} eliminato: ${eur(num(x.importo))}`, close);
+      $("[data-y]", bg).onclick = () => { const v = { data: $("#ce-d", bg).value, importo: num($("#ce-i", bg).value) }; if (!v.importo) return toast("Scrivi l'importo", true);
+        const n = $("#ce-n", bg).value.trim(); if (pg) { v.nota = n; v.modo = $("#ce-m", bg).value; } else v.descr = n;
+        save(c => { if (nuovo) c[k].push(v); else c[k][i] = v; c[k].sort((a, b) => (a.data || "").localeCompare(b.data || "")); }, nuovo ? `${pg ? "Pagamento ricevuto" : "Spesa anticipata"}: ${eur(v.importo)}${n ? " – " + n : ""}` : null, close); };
+    }); };
+  $("#ct-np", body).onclick = () => editor("pagamenti"); $("#ct-ns", body).onclick = () => editor("spese");
+  $$("[data-k]", body).forEach(r => r.onclick = () => editor(r.dataset.k, +r.dataset.i));
 }
 
 /* ================= file condivisi con il PC: modifica sicura ================= */
