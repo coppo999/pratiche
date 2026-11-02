@@ -726,7 +726,10 @@ function menuFile(p, x, body) {
 const CAMPI = [["committente", "Committente (cognome e nome)"], ["telefono", "Telefono", "tel"], ["email", "E-mail", "email"], ["cf", "Codice fiscale / P.IVA"], ["canale", "Canale / agenzia"], ["compenso", "Compenso concordato €", "decimal"],
   ["indirizzo", "Indirizzo"], ["comune", "Comune"], ["provincia", "Prov."], ["foglio", "Foglio"], ["mappale", "Mappale"], ["sub", "Sub."], ["categoria", "Categoria"], ["piano", "Piano / interno"],
   ["residenza", "Residenza"], ["nascitaLuogo", "Luogo di nascita"], ["nascitaData", "Data di nascita", "date"], ["descrizione", "Descrizione lavori", "area"], ["note", "Note", "area"]];
-function tabContoCont(p, body) {
+let CONT_PRAT = null;
+async function contLoad() { if (!CONT_PRAT) { try { CONT_PRAT = (await readJSON(["_sync", "fatture_per_pratica.json"]))?.data || null; } catch (e) {} } return CONT_PRAT; }
+async function tabContoCont(p, body) {
+  await contLoad();
   tabConto(p, body);
   const h = document.createElement("h3"); h.textContent = "Contabilità della pratica"; h.style.margin = "22px 0 6px"; body.appendChild(h);
   const box = document.createElement("div"); body.appendChild(box);
@@ -1086,8 +1089,7 @@ function genRic(p, m) {
 /* Contabilità della pratica: fatture, spese e costi (da _sync/fatture_per_pratica.json, scritto dal PC) */
 async function tabCont(p, body) {
   body.innerHTML = `<div class="muted">Carico…</div>`;
-  let j = null;
-  try { j = await readJSON(["_sync", "fatture_per_pratica.json"]); } catch (e) { j = null; }
+  const j = await contLoad();
   if (!j) { body.innerHTML = `<div class="muted">Dati contabili non disponibili.</div>`; return; }
   const ag = j.aggiornatoUTC ? new Date(j.aggiornatoUTC).toLocaleString("it-IT") : "";
   const c = (p.codice && (j.pratiche || {})[p.codice]) || null;
@@ -1372,7 +1374,7 @@ function editorPrev() {
 /* ================= Conto: preventivo, pagamenti, spese anticipate ================= */
 function contoDi(m) {
   const c = JSON.parse(JSON.stringify(m.conto || {}));
-  if (c.totale == null || c.totale === "") { const pv = (m.preventivi || []).slice(-1)[0]; c.totale = num(pv?.totale) || num(m.compenso) || 0; c.auto = true; }
+  if (c.totale == null || c.totale === "") { const pv = (m.preventivi || []).slice(-1)[0]; c.totale = num(pv?.totale) || num(m.compenso) || num(((CONT_PRAT || {}).pratiche || {})[m.codice]?.concordato) || 0; c.auto = true; }
   c.pagamenti = c.pagamenti || []; c.spese = c.spese || [];
   const pag = c.pagamenti.reduce((s, x) => s + num(x.importo), 0), sp = c.spese.reduce((s, x) => s + num(x.importo), 0);
   return { c, pag, sp, rest: Math.round((num(c.totale) + sp - pag) * 100) / 100 };
@@ -1380,7 +1382,7 @@ function contoDi(m) {
 const salvaConto = (p, fn, log) => modificaMeta(p, mm => { const { c } = contoDi(mm); fn(c); delete c.auto; mm.conto = c; if (log) diarioPush(mm, log + " (dal telefono)", "euro"); });
 function tabConto(p, body) {
   const m = PCUR.meta || metaOf(p), { c, pag, sp, rest } = contoDi(m);
-  const riga = (x, i, k) => `<div class="ag-r" data-k="${k}" data-i="${i}"><span class="ag-o">${esc(dataBreve(x.data || oggi()))}</span><span class="ag-bar" style="background:${k === "pagamenti" ? "#22c55e" : "var(--gold)"}"></span><div class="tx"><b>${eur(num(x.importo))}</b><small>${esc(x.nota || x.descr || (k === "pagamenti" ? "Pagamento" : "Spesa"))}${x.modo ? " · " + esc(x.modo) : ""}</small></div></div>`;
+  const riga = (x, i, k) => `<div class="ag-r" data-k="${k}" data-i="${i}"><span class="ag-o">${esc(dataBreve(x.data || oggi()))}</span><span class="ag-bar" style="background:${k === "pagamenti" ? "#22c55e" : "var(--gold)"}"></span><div class="tx"><b>${eur(num(x.importo))}</b><small>${esc(x.nota || x.descr || (k === "pagamenti" ? "Pagamento" : "Spesa"))}${x.modo ? " · " + esc(x.modo) : ""}${(x.allegati || []).length ? " · 📎 " + x.allegati.length : ""}</small></div></div>`;
   body.innerHTML = `<div class="card"><div class="g2" style="gap:12px">
       <div id="ct-tot" style="cursor:pointer"><div class="hint">TOTALE ✎</div><b style="font-size:20px">${eur(num(c.totale))}</b>${c.nota ? `<div class="hint">${esc(c.nota)}</div>` : ""}</div>
       <div><div class="hint">RIMANENZA</div><b style="font-size:20px;color:${rest > 0.004 ? "#fbbf24" : "#4ade80"}">${eur(rest)}</b>${rest <= 0.004 && num(c.totale) ? `<div class="hint" style="color:#4ade80">✓ saldato</div>` : ""}</div>
@@ -1396,11 +1398,14 @@ function tabConto(p, body) {
     sheet((nuovo ? "Nuovo " : "") + (pg ? "pagamento" : "spesa anticipata"), `<div class="g2"><div class="f"><label>Data</label><input type="date" id="ce-d" value="${esc(x.data || "")}"></div><div class="f"><label>Importo €</label><input id="ce-i" inputmode="decimal" value="${esc(String(x.importo ?? ""))}"></div></div>
       ${pg ? `<div class="f"><label>Modalità</label><select id="ce-m">${["Bonifico", "Contanti", "Assegno", "POS / carta", "Altro"].map(o => `<option ${x.modo === o ? "selected" : ""}>${o}</option>`).join("")}</select></div>` : ""}
       <div class="f"><label>${pg ? "Nota (es. acconto, saldo)" : "Descrizione (es. diritti di segreteria)"}</label><input id="ce-n" value="${esc(x.nota || x.descr || "")}"></div>
+      ${pg ? "" : `<div class="f"><label>Allegati (ricevute, bollettini)</label>${(x.allegati || []).map(a => `<div style="margin:4px 0;font-size:14px"><a href="#" data-op="${esc(a)}">📎 ${esc(a)}</a> <label style="opacity:.7"><input type="checkbox" data-rm="${esc(a)}"> togli</label></div>`).join("")}<input type="file" id="ce-f" multiple accept="image/*,application/pdf"></div>`}
       <div class="row2">${nuovo ? `<button class="btn" data-n>Annulla</button>` : `<button class="btn bad" data-del>${I.trash}Elimina</button>`}<button class="btn pri" data-y>${I.ok}Salva</button></div>`, (bg, close) => {
       const n0 = $("[data-n]", bg); if (n0) n0.onclick = close;
+      [...$$("[data-op]", bg)].forEach(a => a.onclick = async e => { e.preventDefault(); try { const it = await gItem([String(p.anno), p.dir, "Spese anticipate", a.dataset.op]); if (it) window.open(it["@microsoft.graph.downloadUrl"], "_blank"); } catch (er) { toast(er.message, true); } });
       const d = $("[data-del]", bg); if (d) d.onclick = () => save(c => c[k].splice(i, 1), `${pg ? "Pagamento" : "Spesa"} eliminato: ${eur(num(x.importo))}`, close);
-      $("[data-y]", bg).onclick = () => { const v = { data: $("#ce-d", bg).value, importo: num($("#ce-i", bg).value) }; if (!v.importo) return toast("Scrivi l'importo", true);
+      $("[data-y]", bg).onclick = async () => { const v = { data: $("#ce-d", bg).value, importo: num($("#ce-i", bg).value) }; if (!v.importo) return toast("Scrivi l'importo", true);
         const n = $("#ce-n", bg).value.trim(); if (pg) { v.nota = n; v.modo = $("#ce-m", bg).value; } else v.descr = n;
+        if (!pg) { try { const tolti = new Set([...$$("[data-rm]", bg)].filter(z => z.checked).map(z => z.dataset.rm)); v.allegati = (x.allegati || []).filter(a => !tolti.has(a)); for (const f of [...($("#ce-f", bg).files || [])]) { toast("Carico " + f.name + "…"); const r = await upload([String(p.anno), p.dir, "Spese anticipate", f.name], f); v.allegati.push(r?.name || f.name); } } catch (er) { return toast("Allegato non caricato: " + er.message, true); } }
         save(c => { if (nuovo) c[k].push(v); else c[k][i] = v; c[k].sort((a, b) => (a.data || "").localeCompare(b.data || "")); }, nuovo ? `${pg ? "Pagamento ricevuto" : "Spesa anticipata"}: ${eur(v.importo)}${n ? " – " + n : ""}` : null, close); };
     }); };
   $("#ct-np", body).onclick = () => editor("pagamenti"); $("#ct-ns", body).onclick = () => editor("spese");
