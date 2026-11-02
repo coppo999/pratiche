@@ -177,6 +177,7 @@ code{background:rgba(255,255,255,.08);border-color:var(--line)}
 <div id="app"></div>
 <div class="toast" id="toast"></div>
 <script src="config.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script>
 "use strict";
 /* ================= Pratiche Studio · versione per il telefono =================
@@ -604,7 +605,7 @@ function disegnaPratica(p, m) {
       <div class="card"><div class="stbar"><span class="dot" id="p-dot" style="background:${ST_COL[st] || "#94a3b8"}"></span>
         <select id="p-st" class="f" style="margin:0;border:1px solid var(--line);background:var(--panel2);border-radius:11px;padding:10px;font-size:16px">${Object.entries(STATI).map(([k, l]) => `<option value="${k}" ${st === k ? "selected" : ""}>${esc(l)}</option>`).join("")}${st ? "" : `<option value="" selected>Imposta stato…</option>`}</select></div>
         <div class="f" style="margin:10px 0 0"><input id="p-nt" placeholder="Nota: es. inviata in Comune il 12/10 – prot. 12345" value="${esc(m.notaBreve || "")}"></div><div class="ok" id="p-ok"></div></div>
-      <div class="seg" id="p-tabs">${[["doc", "Documenti"], ["dati", "Dati"], ["conto", "Conto"], ["task", "Task"], ["diario", "Diario"]].map(([k, l]) => `<button data-t="${k}" class="${PCUR.tab === k ? "on" : ""}">${l}</button>`).join("")}</div>
+      <div class="seg" id="p-tabs">${[["doc", "Documenti"], ["dati", "Dati"], ["conto", "Conto"], ["gen", "Genera"], ["task", "Task"], ["diario", "Diario"]].map(([k, l]) => `<button data-t="${k}" class="${PCUR.tab === k ? "on" : ""}">${l}</button>`).join("")}</div>
       <div id="p-body"></div></main>${tabbar("p")}`;
   wireTabbar();
   $("#p-back").onclick = () => { if (history.length > 1 && document.referrer !== "x") history.back(); else location.hash = "#/"; };
@@ -631,6 +632,7 @@ function disegnaTab(p) {
   if (PCUR.tab === "dati") return tabDati(p, body);
   if (PCUR.tab === "task") return tabTask(p, body);
   if (PCUR.tab === "conto") return tabContoCont(p, body);
+  if (PCUR.tab === "gen") return tabGenera(p, body);
   if (PCUR.tab === "diario") return tabDiario(p, body);
   return tabDoc(p, body);
 }
@@ -730,6 +732,357 @@ function tabContoCont(p, body) {
   const box = document.createElement("div"); body.appendChild(box);
   return tabCont(p, box);
 }
+const DEF_SETTINGS = {
+  rootPath: "C:\\Users\\david\\OneDrive\\Lavoro",
+  nome: "Davide Coppola",
+  titolo: "Perito Industriale Edile",
+  albo: "Ordine dei Periti Industriali e dei Periti Industriali Laureati della Provincia di Como n° 2236",
+  alboBreve: "Albo n° 2236",
+  indirizzo: "Via Andrea Costa 2 – 20017 Rho (MI)",
+  sedeCitta: "Rho",
+  telefono: "338 123 2370",
+  email: "piedavidecoppola@gmail.com",
+  web: "www.studiotecnicodavidecoppola.com",
+  piva: "03885520134",
+  regime: "forfettario",
+  cassa: 5,
+  sottocartelle: "Documenti cliente; Catasto; Disegni; Pratica Comunale; Foto",
+  cartellaModelli: "_Modelli Pratiche",
+  cartellaBase: "basecad",
+  linkRecensioni: "https://g.page/r/CZueqDVPpnnhEBE/review",
+};
+let S = { ...DEF_SETTINGS, cassa: 5 };
+/* ================= Generatore DOCX (OOXML minimale, stile studio blu/oro) ================= */
+const NAVY = "1F3864", GOLD = "C9A84C", GREY = "667085", PH_FILL = "FBD4B4";
+const xe = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+function DR(text, o = {}) {
+  const rpr = (o.b ? "<w:b/>" : "") + (o.i ? "<w:i/>" : "") + (o.u ? '<w:u w:val="single"/>' : "") + (o.caps ? "<w:caps/>" : "")
+    + (o.color ? `<w:color w:val="${o.color}"/>` : "") + (o.sz ? `<w:sz w:val="${o.sz * 2}"/><w:szCs w:val="${o.sz * 2}"/>` : "")
+    + (o.fill ? `<w:shd w:val="clear" w:color="auto" w:fill="${o.fill}"/>` : "");
+  const parts = String(text ?? "").split("\n").map(line => line.split("\t").map(t => `<w:t xml:space="preserve">${xe(t)}</w:t>`).join("<w:tab/>"));
+  return `<w:r>${rpr ? `<w:rPr>${rpr}</w:rPr>` : ""}${parts.join("<w:br/>")}</w:r>`;
+}
+/* testo con segnaposto «...»: se manca il dato resta lo spazio vuoto */
+function DT(text, o = {}) {
+  // dato mancante: spazio vuoto da compilare a mano (riga) o niente per i testi lunghi
+  return String(text ?? "").split(/(«[^»]*»)/).filter(s => s !== "").map(s => {
+    if (!s.startsWith("«")) return DR(s, o);
+    const lab = s.slice(1, -1); if (lab.length > 28) return "";
+    return DR("_".repeat(Math.max(10, Math.min(28, Math.round(lab.length * 1.5)))), { ...o, b: false, fill: "" });
+  }).join("");
+}
+function DP(content, o = {}) {
+  const runs = typeof content === "string" ? DT(content, o) : (content || []).join("");
+  let ppr = "";
+  if (o.style) ppr += `<w:pStyle w:val="${o.style}"/>`;
+  if (o.keep) ppr += "<w:keepNext/>";
+  if (o.border) ppr += `<w:pBdr><w:bottom w:val="single" w:sz="${o.border}" w:space="4" w:color="${o.borderColor || GOLD}"/></w:pBdr>`;
+  if (o.shd) ppr += `<w:shd w:val="clear" w:color="auto" w:fill="${o.shd}"/>`;
+  if (o.tabs) ppr += `<w:tabs>${o.tabs.map(t => `<w:tab w:val="${t.al || "left"}" w:leader="${t.leader || "none"}" w:pos="${t.pos}"/>`).join("")}</w:tabs>`;
+  ppr += `<w:spacing w:before="${o.before ?? 0}" w:after="${o.after ?? 100}"${o.line ? ` w:line="${o.line}" w:lineRule="auto"` : ""}/>`;
+  if (o.ind || o.hang) ppr += `<w:ind w:left="${o.ind || 0}"${o.hang ? ` w:hanging="${o.hang}"` : ""}/>`;
+  if (o.align) ppr += `<w:jc w:val="${o.align}"/>`;
+  return `<w:p><w:pPr>${ppr}</w:pPr>${runs}</w:p>`;
+}
+const H = (text, o = {}) => DP([DR(text, { b: true, color: NAVY, sz: o.sz || 12 })], { before: o.before ?? 220, after: 100, keep: true, border: o.border ?? 4 });
+const Bullet = (text, o = {}) => DP([DR("•\t", { color: GOLD, b: true }), DT(text, o)], { ind: 360, hang: 360, after: 50, tabs: [{ pos: 360 }] });
+const Check = (on, text) => DP([DR(on ? "☒  " : "☐  ", { color: NAVY, sz: 12 }), DT(text)], { ind: 360, hang: 360, after: 50 });
+function Table(rows, o = {}) {
+  const widths = o.widths || [3000, 6638];
+  const total = widths.reduce((a, b) => a + b, 0);
+  const bc = o.borderColor || "D0D5DD";
+  const b = o.noBorder ? "" : ["top", "left", "bottom", "right", "insideH", "insideV"].map(s => `<w:${s} w:val="single" w:sz="4" w:space="0" w:color="${bc}"/>`).join("");
+  const tblPr = `<w:tblPr><w:tblW w:w="${total}" w:type="dxa"/>${b ? `<w:tblBorders>${b}</w:tblBorders>` : '<w:tblBorders><w:top w:val="nil"/><w:left w:val="nil"/><w:bottom w:val="nil"/><w:right w:val="nil"/><w:insideH w:val="nil"/><w:insideV w:val="nil"/></w:tblBorders>'}<w:tblLayout w:type="fixed"/><w:tblCellMar><w:top w:w="60" w:type="dxa"/><w:left w:w="100" w:type="dxa"/><w:bottom w:w="60" w:type="dxa"/><w:right w:w="100" w:type="dxa"/></w:tblCellMar></w:tblPr>`;
+  const grid = `<w:tblGrid>${widths.map(w => `<w:gridCol w:w="${w}"/>`).join("")}</w:tblGrid>`;
+  const trs = rows.map((row, ri) => {
+    const cells = row.map((cell, ci) => {
+      const c = typeof cell === "object" && cell && !Array.isArray(cell) && "content" in cell ? cell : { content: cell };
+      let fill = c.fill || (o.headerFill && ri === 0 ? o.headerFill : o.labelFill && ci === 0 ? o.labelFill : "");
+      const paras = Array.isArray(c.content) ? c.content.join("") : typeof c.content === "string" && c.content.startsWith("<w:p>") ? c.content
+        : DP(String(c.content ?? ""), { after: 0, align: c.align, ...(ci === 0 && o.labelBold ? { b: true, color: NAVY } : {}), ...(ri === 0 && o.headerFill ? { b: true, color: "FFFFFF" } : {}), ...(c.b ? { b: true } : {}) });
+      const span = c.span ? `<w:gridSpan w:val="${c.span}"/>` : "";
+      const w = c.span ? widths.slice(ci, ci + c.span).reduce((a, b) => a + b, 0) : widths[ci];
+      return `<w:tc><w:tcPr><w:tcW w:w="${w}" w:type="dxa"/>${span}${fill ? `<w:shd w:val="clear" w:color="auto" w:fill="${fill}"/>` : ""}<w:vAlign w:val="center"/></w:tcPr>${paras}</w:tc>`;
+    }).join("");
+    return `<w:tr><w:trPr><w:cantSplit/></w:trPr>${cells}</w:tr>`;
+  }).join("");
+  return `<w:tbl>${tblPr}${grid}${trs}</w:tbl>` + DP("", { after: 60 });
+}
+function Letterhead() {
+  return DP([DR(S.nome, { b: true, color: NAVY, sz: 18 })], { after: 0 })
+    + DP([DR(`${S.titolo} — ${S.alboBreve}`, { color: GOLD, b: true, sz: 10 })], { after: 0 })
+    + DP([DR([S.indirizzo, S.telefono, S.email].filter(Boolean).join("  ·  "), { color: GREY, sz: 9 })], { after: 240, border: 12 });
+}
+function Firma(left, right) {
+  return Table([[
+    [DP([DR(left[0], { b: true, color: NAVY })], { after: 500 }), DP("_______________________________", { after: 0 }), DP([DR(left[1] || "", { sz: 9, color: GREY })], { after: 0 })],
+    [DP([DR(right[0], { b: true, color: NAVY })], { after: 500, align: "right" }), DP("_______________________________", { after: 0, align: "right" }), DP([DR(right[1] || "", { sz: 9, color: GREY })], { after: 0, align: "right" })],
+  ]], { widths: [4819, 4819], noBorder: true });
+}
+async function buildDocx(body, title) {
+  const zip = new JSZip();
+  zip.file("[Content_Types].xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/><Override PartName="/word/footer1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml"/><Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/></Types>`);
+  zip.file("_rels/.rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/></Relationships>`);
+  zip.file("docProps/core.xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title>${xe(title || "")}</dc:title><dc:creator>${xe(S.nome)}</dc:creator><dcterms:created xsi:type="dcterms:W3CDTF">${new Date().toISOString().slice(0, 19)}Z</dcterms:created></cp:coreProperties>`);
+  zip.file("word/_rels/document.xml.rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer" Target="footer1.xml"/></Relationships>`);
+  zip.file("word/styles.xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:eastAsia="Calibri" w:cs="Calibri"/><w:sz w:val="21"/><w:szCs w:val="21"/><w:lang w:val="it-IT"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr><w:spacing w:after="100" w:line="264" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults><w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/></w:style><w:style w:type="table" w:default="1" w:styleId="TableNormal"><w:name w:val="Normal Table"/><w:tblPr><w:tblCellMar><w:left w:w="108" w:type="dxa"/><w:right w:w="108" w:type="dxa"/></w:tblCellMar></w:tblPr></w:style></w:styles>`);
+  zip.file("word/footer1.xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:ftr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">${DP([DR(`${S.nome} · ${S.titolo} · ${S.alboBreve}${S.piva ? " · P.IVA " + S.piva : ""}   —   pag. `, { sz: 8, color: GREY }), '<w:r><w:rPr><w:sz w:val="16"/><w:color w:val="667085"/></w:rPr><w:fldChar w:fldCharType="begin"/></w:r><w:r><w:rPr><w:sz w:val="16"/><w:color w:val="667085"/></w:rPr><w:instrText xml:space="preserve"> PAGE </w:instrText></w:r><w:r><w:rPr><w:sz w:val="16"/><w:color w:val="667085"/></w:rPr><w:fldChar w:fldCharType="separate"/></w:r><w:r><w:rPr><w:sz w:val="16"/><w:color w:val="667085"/></w:rPr><w:t>1</w:t></w:r><w:r><w:rPr><w:sz w:val="16"/><w:color w:val="667085"/></w:rPr><w:fldChar w:fldCharType="end"/></w:r>'], { align: "center", after: 0 })}</w:ftr>`);
+  zip.file("word/document.xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><w:body>${body}<w:sectPr><w:footerReference w:type="default" r:id="rId2"/><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134" w:header="567" w:footer="567" w:gutter="0"/></w:sectPr></w:body></w:document>`);
+  return zip.generateAsync({ type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
+}
+
+/* ---------- dati comuni ---------- */
+const ph = (v, label) => (v && String(v).trim()) ? String(v).trim() : `«${label}»`;
+function immobileTxt(m) {
+  const ind = m.indirizzo || ""; const com = m.comune && !norm(ind).includes(norm(m.comune)) ? m.comune : "";
+  return [ind, com ? com + (m.provincia ? ` (${m.provincia})` : "") : (m.provincia && ind ? `(${m.provincia})` : "")].filter(Boolean).join(" – ").replace(" – (", " (") || "«indirizzo immobile»";
+}
+function catastoTxt(m) {
+  const s = [m.foglio && `Foglio ${m.foglio}`, m.mappale && `Mappale ${m.mappale}`, m.sub && `Sub. ${m.sub}`].filter(Boolean).join(" · ");
+  return s || m.catastoTxt || "";
+}
+function docPreventivo(m, o) {
+  const c = calcPrev(o);
+  let b = Letterhead();
+  b += DP([DR(`${S.sedeCitta}, ${dataLunga()}`)], { align: "right", after: 200 });
+  b += DP([DR("Spett.le ", {}), DT(ph(o.dest, "destinatario"), { b: true })], { align: "right", after: 0, ind: 4800 });
+  if (o.destInd) b += DP(o.destInd, { align: "right", after: 0, ind: 4800 });
+  b += DP("", { after: 200 });
+  b += DP([DR("Oggetto: ", { b: true, color: NAVY }), DR("PREVENTIVO DI MASSIMA PARCELLA PROFESSIONALE", { b: true })], { after: 40 });
+  b += DP([DR("Immobile: ", { b: true, color: NAVY }), DT(immobileTxt(m))], { after: 40 });
+  b += DP([DR(m._rifLab || "Rif. pratica: ", { b: true, color: NAVY }), DR(m._rif || `${m.codice || ""}${m.tipo ? " – " + m.tipo : ""}`)], { after: 200 });
+  b += DP("Di seguito si propone il preventivo comprendente le seguenti prestazioni professionali:", { after: 60 });
+  o.voci.forEach(v => { b += Bullet(v.t || "«prestazione»"); });
+  b += H("Premessa", { sz: 11 });
+  b += DP(`Le prestazioni verranno svolte dal ${S.titolo} ${S.nome}, iscritto all'${S.albo}, in possesso delle abilitazioni necessarie. L'onorario viene esposto a forfait, calcolato in base agli elaborati ed alle indicazioni ricevute.`, { align: "both" });
+  o.voci.forEach((v, i) => {
+    const L = String.fromCharCode(65 + i);
+    b += H(`VOCE ${L}: ${String(v.t || "").toUpperCase()}`, { sz: 11 });
+    String(v.d || "").split("\n").filter(s => s.trim()).forEach(s => { b += Bullet(s.trim()); });
+    b += DP("Sono comprese spese generali conglobate (art. 6 L. 2 marzo 1949): vacazioni, personale di aiuto, spese telefoniche e di cancelleria.", { i: true, color: GREY, sz: 9, before: 60 });
+    b += DP([DR(`TOTALE VOCE ${L}`, { b: true }), DR("\t"), (num(v.imp) ? DR(eur(num(v.imp)), { b: true }) : DR("€ ____________", {}))], { tabs: [{ pos: 9638, al: "right", leader: "dot" }], after: 80 });
+  });
+  b += H("Riepilogo", { sz: 11 });
+  const rows = [["Voce", "Importo"]];
+  o.voci.forEach((v, i) => rows.push([`Voce ${String.fromCharCode(65 + i)} – ${v.t || ""}`, { content: num(v.imp) ? eur(num(v.imp)) : "«importo»", align: "right" }]));
+  rows.push([{ content: "Totale onorario", b: true }, { content: eur(c.imp), align: "right", b: true }]);
+  rows.push([`Contributo integrativo Cassa previdenziale ${num(o.cassa)}%`, { content: eur(c.cassa), align: "right" }]);
+  if (o.regime === "ordinario") rows.push(["IVA 22%", { content: eur(c.iva), align: "right" }]);
+  if (c.bollo) rows.push(["Marca da bollo su fattura", { content: eur(c.bollo), align: "right" }]);
+  rows.push([{ content: "TOTALE", b: true, fill: "E8EDF7" }, { content: eur(c.tot), align: "right", b: true, fill: "E8EDF7" }]);
+  b += Table(rows, { widths: [7038, 2600], headerFill: NAVY });
+  if (o.regime === "forfettario") b += DP("Operazione effettuata ai sensi dell'art. 1, commi 54-89, L. 190/2014 (regime forfettario): non soggetta a IVA né a ritenuta d'acconto.", { i: true, sz: 9, color: GREY });
+  if (o.extra) b += DP([DR("N.B.: ", { b: true }), DT(o.extra)], { before: 60 });
+  b += H("Esclusioni", { sz: 11 });
+  ["Spese per bolli, diritti di segreteria, bollettini, diritti catastali, ecc., che restano a carico del Committente;",
+    "Varianti alla proposta concordata richieste dal Committente o dovute a impossibilità tecniche non imputabili al tecnico;",
+    "Eventuali perizie statiche e/o dichiarazioni di idoneità statica dell'immobile;",
+    "Eventuali pratiche preliminari di aggiornamento della banca dati catastale (Catasto Fabbricati / Terreni);",
+    "Tutte le prestazioni non espressamente elencate nella presente offerta."].forEach(s => { b += Bullet(s); });
+  b += H("Condizioni", { sz: 11 });
+  b += Bullet(`Modalità di pagamento: ${o.pagamento || "«pagamento»"}`);
+  b += Bullet(`Validità dell'offerta: ${o.validita || 30} giorni dalla data del presente documento.`);
+  b += DP("Restando a disposizione per ogni chiarimento, porgo distinti saluti.", { before: 160, after: 200 });
+  b += Firma(["Per accettazione – il Committente", "data e firma"], [`${S.titolo} ${S.nome}`, S.alboBreve]);
+  b += DP("Informativa privacy: i dati personali sono trattati esclusivamente per le finalità connesse all'incarico, nel rispetto del Reg. UE 2016/679 (GDPR) e del D.Lgs. 196/2003.", { sz: 8, color: GREY, before: 200, i: true });
+  return b;
+}
+
+/* ---------- DELEGA ---------- */
+const DELEGA_ATT = [
+  ["accesso", "accedere all'immobile sopra indicato per effettuare il rilievo dello stato di fatto"],
+  ["catasto", "acquisire presso il Catasto (Agenzia delle Entrate) la documentazione catastale relativa all'immobile"],
+  ["atti", "acquisire presso il Comune competente la documentazione edilizia relativa all'immobile (accesso agli atti: titoli edilizi, atti autorizzativi, ecc.)"],
+  ["pratiche", "depositare presso il Comune competente pratiche edilizie (CILA, SCIA, varianti, agibilità) in nome e per conto del delegante"],
+  ["docfa", "depositare presso l'Agenzia delle Entrate – Catasto variazioni planimetriche (DOCFA) in nome e per conto del delegante"],
+  ["ape", "redigere e trasmettere l'Attestato di Prestazione Energetica (APE) al Catasto Energetico Regionale"],
+  ["copie", "richiedere e ritirare copie di atti e documenti presso qualsiasi ufficio pubblico necessario alla pratica"],
+];
+function delegaDefaults(cat) {
+  const on = new Set(["accesso", "catasto", "copie"]);
+  if (["cila", "scia", "sanatoria", "agibilita", "conformita", "accesso"].includes(cat)) { on.add("atti"); }
+  if (["cila", "scia", "sanatoria", "agibilita"].includes(cat)) on.add("pratiche");
+  if (["cila", "scia", "sanatoria", "catasto"].includes(cat)) on.add("docfa");
+  if (cat === "ape") on.add("ape");
+  return on;
+}
+function docDelega(m, o) {
+  let b = Letterhead();
+  b += DP([DR("DELEGA AL TECNICO", { b: true, color: NAVY, sz: 16 })], { align: "center", after: 20 });
+  b += DP([DR("Autorizzazione ad accedere all'immobile, acquisire documentazione e depositare pratiche in nome del committente", { i: true, color: GREY })], { align: "center", after: 200 });
+  b += H("1. Dati del Delegante (Committente)");
+  b += Table([["Cognome e nome", ph(m.committente, "cognome e nome")], ["Codice Fiscale", ph(m.cf, "codice fiscale")],
+    ["Nato/a a", `${ph(m.nascitaLuogo, "luogo di nascita")}  il  ${m.nascitaData ? dataIt(m.nascitaData) : "«data»"}`], ["Residente in", ph(m.residenza, "indirizzo di residenza")],
+    ["Documento d'identità", `${m.docTipo || "Tipo __________"}  N° ${m.docNumero || "______________"}  rilasciato da ${m.docRilascio || "________________"}${m.docDataRilascio ? " il " + dataIt(m.docDataRilascio) : ""}${m.docScadenza ? " – scad. " + dataIt(m.docScadenza) : ""}`]], { labelFill: "F2F4F8", labelBold: true });
+  b += H("2. Dati dell'Immobile");
+  b += Table([["Indirizzo", ph(m.indirizzo, "indirizzo")], ["Comune", ph(m.comune ? m.comune + (m.provincia ? ` (${m.provincia})` : "") : "", "comune")],
+    ["Foglio / Mappale / Sub", `${ph(m.foglio, "fg")} / ${ph(m.mappale, "map")} / ${ph(m.sub, "sub")}`], ["Categoria catastale", m.categoria || "______________"]], { labelFill: "F2F4F8", labelBold: true });
+  b += H("3. Oggetto della Delega");
+  b += DP(`Il/La sottoscritto/a, come sopra generalizzato/a, in qualità di proprietario/a (o avente titolo) dell'immobile sopra indicato, con la presente`, { align: "both" });
+  b += DP([DR("DELEGA E AUTORIZZA", { b: true, color: NAVY, sz: 12 })], { align: "center", before: 80, after: 80 });
+  b += DP(`il Sig. ${S.nome}, ${S.titolo}, iscritto all'${S.albo}, con studio in ${S.indirizzo}, a:`, { align: "both" });
+  DELEGA_ATT.forEach(([k, t]) => { if (o.att.has(k)) b += Bullet(t); });
+  if (o.altro) b += Bullet(o.altro);
+  b += H("4. Durata e Revoca");
+  b += DP("La presente delega è valida dalla data di sottoscrizione fino al completamento della pratica indicata, salvo revoca scritta anticipata da parte del delegante.", { align: "both" });
+  b += H("5. Trattamento dei Dati Personali");
+  b += DP("I dati personali del delegante sono trattati dal tecnico incaricato esclusivamente per le finalità connesse all'esecuzione del presente incarico, nel rispetto del Regolamento UE 2016/679 (GDPR) e del D.Lgs. 196/2003.", { align: "both" });
+  b += DP(`Luogo e data: ______________________, ____/____/________`, { before: 200, after: 200 });
+  b += Firma(["Il Delegante", "firma per esteso"], ["Il Tecnico Delegato", `${S.nome} — ${S.alboBreve}`]);
+  b += DP([DR("⚑  Allegare fotocopia del documento d'identità del delegante in corso di validità.", { b: true, color: NAVY, sz: 9 })], { before: 200, shd: "FFF6E0" });
+  return b;
+}
+
+/* ---------- LETTERA DI INCARICO ---------- */
+const INC_PREST = [
+  "Sopralluogo e rilievo dello stato di fatto", "Accesso agli atti e verifica della conformità urbanistica", "Verifica della conformità catastale",
+  "Redazione elaborati grafici (stato assentito, stato di fatto, comparativa)", "Relazione tecnica", "Deposito della pratica edilizia presso il Comune",
+  "Variazione catastale DOCFA presso l'Agenzia delle Entrate", "Attestato di Prestazione Energetica (APE)",
+];
+function incaricoDefaults(cat) {
+  const s = new Set([0]);
+  if (["cila", "scia", "sanatoria"].includes(cat)) [1, 2, 3, 4, 5, 6].forEach(i => s.add(i));
+  if (cat === "conformita" || cat === "accesso") [1, 2, 4].forEach(i => s.add(i));
+  if (cat === "catasto") [2, 6].forEach(i => s.add(i));
+  if (cat === "agibilita") [1, 4, 5].forEach(i => s.add(i));
+  if (cat === "ape") s.add(7);
+  return s;
+}
+function docIncarico(m, o) {
+  const comp = num(o.compenso), cassa = comp * num(S.cassa) / 100;
+  let b = Letterhead();
+  b += DP([DR("LETTERA DI INCARICO PROFESSIONALE", { b: true, color: NAVY, sz: 16 })], { align: "center", after: 20 });
+  b += DP([DR("Accordo tra professionista e committente per l'esecuzione di prestazioni tecniche", { i: true, color: GREY })], { align: "center", after: 200 });
+  b += H("1. Parti");
+  b += Table([["Professionista", `${S.nome}, ${S.titolo}, iscritto all'${S.albo}, con studio in ${S.indirizzo}${S.piva ? " – P.IVA " + S.piva : ""}`],
+    ["Committente", ph(m.committente, "nome / ragione sociale")], ["C.F. / P.IVA", ph(m.cf, "codice fiscale")], ["Residente / sede", ph(m.residenza, "residenza")],
+    ["Recapiti", [m.telefono, m.email].filter(Boolean).join(" · ") || "«telefono / e-mail»"]], { labelFill: "F2F4F8", labelBold: true });
+  b += H("2. Oggetto dell'Incarico");
+  b += DP(`Il Committente affida al Professionista, che accetta, l'esecuzione delle seguenti prestazioni tecniche relative alla pratica ${m.codice || ""}${m.tipo ? " (" + m.tipo + ")" : ""}:`, { align: "both" });
+  INC_PREST.forEach((t, i) => { b += Check(o.prest.has(i), t); });
+  if (o.altro) b += Check(true, o.altro);
+  b += H("3. Immobile");
+  b += Table([["Indirizzo", immobileTxt(m)], ["Dati catastali", catastoTxt(m) || "Foglio ____ Mappale ____ Sub ____"], ["Piano / Interno", m.piano || "______________"]], { labelFill: "F2F4F8", labelBold: true });
+  b += H("4. Compenso Professionale");
+  b += Table([["Compenso concordato", comp ? `${eur(comp)} + cassa previdenziale ${num(S.cassa)}% (${eur(cassa)}) = ${eur(comp + cassa)}${S.regime === "ordinario" ? " + IVA 22%" : ""}` : "€ «importo» + cassa previdenziale " + num(S.cassa) + "%"],
+    ["Acconto all'incarico", num(o.acconto) ? eur(num(o.acconto)) : "€ ____________"], ["Saldo", o.saldo || "alla consegna degli elaborati / al deposito della pratica"],
+    ["Modalità di pagamento", o.modalita || "bonifico bancario"]], { labelFill: "F2F4F8", labelBold: true });
+  b += DP("Restano a carico del Committente diritti di segreteria, diritti catastali, bolli, sanzioni ed eventuali oblazioni.", { sz: 9, i: true, color: GREY });
+  b += H("5. Tempi");
+  b += DP(`I tempi indicati si riferiscono esclusivamente alle fasi di competenza del Professionista (sopralluogo, elaborazione, deposito). Una volta depositata la pratica, i tempi di istruttoria dipendono dagli uffici comunali e/o dall'Agenzia delle Entrate, sui quali il Professionista non ha alcuna influenza.${o.tempi ? " Tempi previsti: " + o.tempi + "." : ""}`, { align: "both" });
+  b += H("6. Obblighi del Committente");
+  b += DP("Il Committente si impegna a fornire tempestivamente la documentazione in suo possesso (atti di provenienza, titoli edilizi, planimetrie, certificazioni) e a garantire l'accesso all'immobile. Eventuali informazioni non veritiere o incomplete sollevano il Professionista da ogni responsabilità.", { align: "both" });
+  b += H("7. Privacy e Foro");
+  b += DP("I dati personali sono trattati nel rispetto del Reg. UE 2016/679 (GDPR). Per ogni controversia è competente il Foro del luogo di residenza del Professionista, salvo diversa disposizione inderogabile di legge.", { align: "both" });
+  b += DP(`${S.sedeCitta}, ${dataLunga()}`, { before: 200, after: 200 });
+  b += Firma(["Il Committente", "per accettazione"], ["Il Professionista", `${S.nome} — ${S.alboBreve}`]);
+  return b;
+}
+/* ---------- RICEVUTA PAGAMENTO IN CONTANTI ---------- */
+function numInLettere(n) {
+  const U = ["", "uno", "due", "tre", "quattro", "cinque", "sei", "sette", "otto", "nove", "dieci", "undici", "dodici", "tredici", "quattordici", "quindici", "sedici", "diciassette", "diciotto", "diciannove"];
+  const D = ["", "", "venti", "trenta", "quaranta", "cinquanta", "sessanta", "settanta", "ottanta", "novanta"];
+  const sotto100 = x => { if (x < 20) return U[x]; const d = D[Math.floor(x / 10)], u = x % 10; return (u === 1 || u === 8 ? d.slice(0, -1) : d) + (u === 3 ? "tré" : U[u]); };
+  const sotto1000 = x => { const c = Math.floor(x / 100), r = x % 100; let s = c ? (c === 1 ? "cento" : U[c] + "cento") : ""; if (r) s = (c && (r === 8 || (r >= 80 && r < 90)) ? s.slice(0, -1) : s) + sotto100(r); return s; };
+  const intero = x => {
+    if (x === 0) return "zero";
+    const mld = Math.floor(x / 1e9), mil = Math.floor(x / 1e6) % 1000, mig = Math.floor(x / 1000) % 1000, r = x % 1000; let s = "";
+    if (mld) s += (mld === 1 ? "unmiliardo" : sotto1000(mld) + "miliardi");
+    if (mil) s += (mil === 1 ? "unmilione" : sotto1000(mil) + "milioni");
+    if (mig) s += (mig === 1 ? "mille" : sotto1000(mig) + "mila");
+    if (r) s += sotto1000(r);
+    return s;
+  };
+  const v = Math.round(Math.abs(typeof n === "number" ? n : num(n)) * 100); return `${intero(Math.floor(v / 100))}/${String(v % 100).padStart(2, "0")}`;
+}
+function ricevutaCopia(m, o, etichetta) {
+  const imp = num(o.importo);
+  let b = o.dueCopie ? DP([DR(S.nome, { b: true, color: NAVY, sz: 14 }), DR(`   ${S.titolo} — ${S.alboBreve}`, { color: GOLD, b: true, sz: 9 })], { after: 0 })
+      + DP([DR([S.indirizzo, S.telefono, S.email].filter(Boolean).join("  ·  "), { color: GREY, sz: 8 })], { after: 120, border: 8 }) : Letterhead();
+  b += DP([DR("RICEVUTA DI PAGAMENTO IN CONTANTI", { b: true, color: NAVY, sz: 15 }), DR(etichetta ? `\t${etichetta}` : "", { sz: 9, color: GREY })], { tabs: [{ pos: 9638, al: "right" }], after: 40 });
+  b += DP([DR(`N. ${o.numero}  del  ${dataIt(o.data)}`, { b: true })], { after: o.dueCopie ? 80 : 160, border: 4, borderColor: "D0D5DD" });
+  b += DP(`Il sottoscritto ${S.nome}, ${S.titolo}${S.piva ? ", P.IVA " + S.piva : ""}, con studio in ${S.indirizzo},`, { align: "both" });
+  b += DP([DR("DICHIARA DI AVER RICEVUTO", { b: true, color: NAVY })], { align: "center", before: 60, after: 60 });
+  b += Table([["Da", `${ph(o.pagante, "nome e cognome")}${o.cfPagante ? "  –  C.F. " + o.cfPagante : ""}`],
+    ["La somma di", [DP([DR(imp ? eur(imp) : "€ ______________", { b: true, sz: 13 })], { after: 0 }), DP([DR(imp ? `(euro ${numInLettere(imp)})` : "(euro ____________________________)", { i: true, color: GREY })], { after: 0 })]],
+    ["In contanti a titolo di", `${o.causale || "pagamento"}${o.descrizione ? " – " + o.descrizione : ""}`],
+    ["Rif. pratica", `${m.codice || ""}${m.tipo ? " – " + m.tipo : ""}${m.indirizzo || m.comune ? " – " + immobileTxt(m) : ""}`]], { labelFill: "F2F4F8", labelBold: true, widths: [2600, 7038] });
+  if (o.fattura) b += DP("La presente ricevuta non costituisce documento fiscale: per l'importo ricevuto sarà emessa regolare fattura.", { sz: 9, i: true, color: GREY });
+  b += Table([[
+    [DP(`${S.sedeCitta}, ${dataIt(o.data)}`, { after: 0 })],
+    [DP([DR("Il Professionista", { b: true, color: NAVY })], { after: o.dueCopie ? 260 : 420, align: "right" }), DP("_______________________________", { after: 0, align: "right" }), DP([DR(S.nome, { sz: 9, color: GREY })], { after: 0, align: "right" })],
+  ]], { widths: [4819, 4819], noBorder: true });
+  return b;
+}
+function docRicevuta(m, o) {
+  if (!o.dueCopie) return ricevutaCopia(m, o, "");
+  return ricevutaCopia(m, o, "Copia per il cliente")
+    + DP([DR("✂ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -", { color: "B0B7C3", sz: 8 })], { align: "center", before: 40, after: 60 })
+    + ricevutaCopia(m, o, "Copia per lo studio");
+}
+
+/* Genera documenti dal telefono: preventivo, delega, lettera d'incarico, ricevuta (stessi modelli del PC) */
+const cognomeG = m => (String(m.committente || "").trim().split(/\s+/)[0] || "").replace(/[^\w]/g, "");
+const campo = (id, label, val) => `<div class="f"><label>${esc(label)}</label><input id="${id}" value="${esc(val ?? "")}"></div>`;
+const casella = (id, label, on) => `<label style="display:flex;gap:8px;align-items:center;margin:8px 0"><input type="checkbox" id="${id}" ${on ? "checked" : ""}><span>${esc(label)}</span></label>`;
+async function tabGenera(p, body) {
+  const m = { ...(await leggiMeta(p)) }; if (!m.codice) m.codice = p.codice; if (!m.anno) m.anno = p.anno;
+  body.innerHTML = `<p class="muted" style="font-size:13px;margin:4px 0 12px">Il documento viene creato qui e salvato nella cartella della pratica.</p>`
+    + [["prev", "Preventivo"], ["del", "Delega al tecnico"], ["inc", "Lettera d'incarico"], ["ric", "Ricevuta in contanti"]]
+      .map(([k, l]) => `<button class="btn full" data-gen="${k}" style="margin-bottom:8px">${l}</button>`).join("");
+  const F = { prev: genPrev, del: genDel, inc: genInc, ric: genRic };
+  $$("[data-gen]", body).forEach(b => b.onclick = () => F[b.dataset.gen](p, m));
+}
+function genCrea(p, m, titolo, fname, form, costruisci, docFn) {
+  sheet(titolo, `${form}<div class="row2" style="margin-top:14px"><button class="btn" data-n>Annulla</button><button class="btn pri" data-y>Crea documento</button></div>`, (bg, close) => {
+    $("[data-n]", bg).onclick = close;
+    $("[data-y]", bg).onclick = async () => {
+      const b = $("[data-y]", bg); b.disabled = true; b.textContent = "Creo…";
+      try {
+        const o = costruisci(bg);
+        const blob = await buildDocx(docFn(m, o));
+        const nome = fname + ".docx";
+        await upload([String(p.anno), p.dir, nome], new File([blob], nome, { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" }));
+        close(); toast("✓ Creato " + nome);
+      } catch (e) { b.disabled = false; b.textContent = "Crea documento"; toast("Non creato: " + e.message, true); }
+    };
+  });
+}
+function genPrev(p, m) {
+  const voci = presetFor(p.cat);
+  const form = campo("pv-dest", "Destinatario (Spett.le)", m.committente || m.canale || "")
+    + campo("pv-ind", "Indirizzo destinatario", m.residenza || (m.comune ? m.comune + (m.provincia ? " (" + m.provincia + ")" : "") : ""))
+    + `<div class="f"><label>Regime</label><select id="pv-reg"><option value="forfettario" ${S.regime === "forfettario" ? "selected" : ""}>Forfettario (no IVA)</option><option value="ordinario" ${S.regime === "ordinario" ? "selected" : ""}>Ordinario (IVA 22%)</option></select></div>`
+    + campo("pv-val", "Validità (giorni)", "30") + campo("pv-pag", "Pagamento", "50% all'incarico, saldo alla consegna / al deposito")
+    + voci.map((v, i) => `<div class="f"><label>${esc(v.t)} – importo €</label><input id="pv-v${i}" inputmode="decimal" value="${esc(v.imp ?? "")}"></div>`).join("")
+    + campo("pv-nb", "Note (N.B.)", "");
+  genCrea(p, m, "Preventivo", `Preventivo_${m.codice || p.codice}${cognomeG(m) ? "_" + cognomeG(m) : ""}`, form,
+    bg => ({ voci: voci.map((v, i) => ({ ...v, imp: $("#pv-v" + i, bg).value })), dest: $("#pv-dest", bg).value, destInd: $("#pv-ind", bg).value, regime: $("#pv-reg", bg).value, cassa: S.cassa, validita: $("#pv-val", bg).value, pagamento: $("#pv-pag", bg).value, extra: $("#pv-nb", bg).value }), docPreventivo);
+}
+function genDel(p, m) {
+  const on = delegaDefaults(p.cat);
+  const form = DELEGA_ATT.map(([k, t]) => casella("dl-" + k, t, on.has(k))).join("") + campo("dl-alt", "Altro (facoltativo)", "");
+  genCrea(p, m, "Delega al tecnico", `Delega_${m.codice || p.codice}${cognomeG(m) ? "_" + cognomeG(m) : ""}`, form,
+    bg => ({ att: new Set(DELEGA_ATT.map(([k]) => k).filter(k => $("#dl-" + k, bg).checked)), altro: $("#dl-alt", bg).value.trim() }), docDelega);
+}
+function genInc(p, m) {
+  const on = incaricoDefaults(p.cat);
+  const form = INC_PREST.map((t, i) => casella("in-" + i, t, on.has(i))).join("") + campo("in-alt", "Altra prestazione", "")
+    + campo("in-comp", "Compenso € (senza cassa)", m.compenso || "") + campo("in-acc", "Acconto €", "")
+    + campo("in-mod", "Modalità di pagamento", "bonifico bancario") + campo("in-tempi", "Tempi previsti", "");
+  genCrea(p, m, "Lettera d'incarico", `Incarico_${m.codice || p.codice}${cognomeG(m) ? "_" + cognomeG(m) : ""}`, form,
+    bg => ({ prest: new Set(INC_PREST.map((t, i) => i).filter(i => $("#in-" + i, bg).checked)), altro: $("#in-alt", bg).value.trim(), compenso: $("#in-comp", bg).value, acconto: $("#in-acc", bg).value, modalita: $("#in-mod", bg).value, tempi: $("#in-tempi", bg).value, saldo: "alla consegna" }), docIncarico);
+}
+function genRic(p, m) {
+  const n = (m.ricevute || []).length + 1;
+  const form = campo("rc-chi", "Ricevuto da", m.committente || "") + campo("rc-cf", "Codice fiscale (facoltativo)", m.cf || "")
+    + campo("rc-imp", "Importo €", "") + campo("rc-cau", "In contanti a titolo di", "pagamento") + campo("rc-desc", "Descrizione (facoltativa)", "")
+    + casella("rc-fat", "Fattura emessa a parte", false) + casella("rc-due", "Doppia copia (cliente e studio)", true);
+  genCrea(p, m, "Ricevuta in contanti", `Ricevuta_${m.codice || p.codice}_${n}`, form,
+    bg => ({ pagante: $("#rc-chi", bg).value, cfPagante: $("#rc-cf", bg).value, importo: $("#rc-imp", bg).value, causale: $("#rc-cau", bg).value, descrizione: $("#rc-desc", bg).value, fattura: $("#rc-fat", bg).checked, dueCopie: $("#rc-due", bg).checked, numero: `${m.codice || p.codice}/${n}`, data: oggi() }), docRicevuta);
+}
+
 /* Contabilità della pratica: fatture, spese e costi (da _sync/fatture_per_pratica.json, scritto dal PC) */
 async function tabCont(p, body) {
   body.innerHTML = `<div class="muted">Carico…</div>`;
