@@ -1376,7 +1376,8 @@ function contoDi(m) {
   const c = JSON.parse(JSON.stringify(m.conto || {}));
   if (c.totale == null || c.totale === "") { const pv = (m.preventivi || []).slice(-1)[0]; c.totale = num(pv?.totale) || num(m.compenso) || num(((CONT_PRAT || {}).pratiche || {})[m.codice]?.concordato) || 0; c.auto = true; }
   c.pagamenti = c.pagamenti || []; c.spese = c.spese || [];
-  const pag = c.pagamenti.reduce((s, x) => s + num(x.importo), 0), sp = c.spese.reduce((s, x) => s + num(x.importo), 0);
+  const pagMan = c.pagamenti.reduce((s, x) => s + num(x.importo), 0), sp = c.spese.reduce((s, x) => s + num(x.importo), 0);
+  const incC = num((((CONT_PRAT || {}).pratiche || {})[m.codice] || {}).totali?.incassato), pag = Math.max(pagMan, incC);
   return { c, pag, sp, rest: Math.round((num(c.totale) + sp - pag) * 100) / 100 };
 }
 const salvaConto = (p, fn, log) => modificaMeta(p, mm => { const { c } = contoDi(mm); fn(c); delete c.auto; mm.conto = c; if (log) diarioPush(mm, log + " (dal telefono)", "euro"); });
