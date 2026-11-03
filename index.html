@@ -192,7 +192,7 @@ const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": 
 const norm = s => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 const camel = s => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^A-Za-z0-9 ]+/g, " ").trim().split(/\s+/).filter(Boolean).map(w => w[0].toUpperCase() + w.slice(1)).join("");
 const safeName = s => String(s || "").replace(/[\\/:*?"<>|#%]+/g, "-").replace(/\s+/g, " ").trim().replace(/[. ]+$/, "");
-const num = v => { const n = parseFloat(String(v ?? "").replace(/\./g, "").replace(",", ".")); return isFinite(n) ? n : 0; };
+const num = v => { if (typeof v === "number") return isFinite(v) ? v : 0; if (v === "" || v == null) return 0; const t = String(v).trim(); const n = /^-?\d+\.\d{1,2}$/.test(t) ? parseFloat(t) : parseFloat(t.replace(/\./g, "").replace(",", ".")); return isFinite(n) ? n : 0; };
 const eur = n => (+n || 0).toLocaleString("it-IT", { style: "currency", currency: "EUR" });
 const oggi = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 const dataIt = s => { if (!s) return ""; const d = new Date(s.length === 10 ? s + "T12:00:00" : s); return isNaN(d) ? s : d.toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric" }); };
