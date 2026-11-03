@@ -573,10 +573,12 @@ function impostazioni() {
   sheet("Impostazioni", `<p class="hint" style="margin:0 4px 10px">Cartella su OneDrive: <b>${esc(CFG.root)}</b><br>Indirizzo dell'app: <code>${esc(REDIRECT)}</code></p>
     <button class="opt" data-a="cfg">${I.cog}Cambia ID applicazione o cartella</button>
     ${gcal.ok() ? `<button class="opt" data-a="gx">${I.cal}Scollega Google Calendar</button>` : ""}
+    <button class="opt" data-a="bot">${I.edit}Assistente Telegram${ls.get("ps_bot", null) ? " ✓" : ""}</button>
     <button class="opt" data-a="gk">${I.edit}Chiave Gemini (lettura documenti)${ls.get("ps_gkey", "") ? " ✓" : ""}</button>
     <button class="opt bad" data-a="out">${I.ext}Esci dall'account Microsoft</button>`, (bg, close) => {
     $("[data-a=cfg]", bg).onclick = () => { close(); viewSetup(); };
     const gx = $("[data-a=gx]", bg); if (gx) gx.onclick = () => { close(); ls.del("ps_gtok"); ls.set("ps_gcal_on", false); toast("Google Calendar scollegato"); };
+    $("[data-a=bot]", bg).onclick = () => { close(); const u = prompt("Indirizzo dell'assistente (https://….workers.dev):", ls.get("ps_bot", null)?.u || ""); if (!u) return; const k = prompt("Chiave APP_KEY:", ls.get("ps_bot", null)?.k || ""); if (!k) return; ls.set("ps_bot", { u: u.trim(), k: k.trim() }); toast("Assistente collegato"); botSync(); };
     $("[data-a=gk]", bg).onclick = async () => { close(); if (await chiaveGemini(true)) toast("Chiave Gemini salvata su questo telefono"); };
     $("[data-a=out]", bg).onclick = () => { close(); logout(); };
   });
@@ -1645,6 +1647,39 @@ function route() {
   if (h === "#/clienti") return viewClienti();
   return viewLista();
 }
+const BOT_CFG = () => ls.get("ps_bot", null);
+const BOT_PRAT = () => D.prat, BOT_NOME = p => (metaOf(p).committente || "") + " " + p.key, BOT_TASK = fn => taskModifica(fn), BOT_DOPO = () => { if (/^(#\/task)?$/.test(location.hash)) route(); };
+/* ===== Assistente Telegram: legge la posta in arrivo e la applica ===== */
+const bnorm = s => String(s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+function botPratica(x) {
+  const tutte = BOT_PRAT().filter(p => p.codice);
+  if (x.cod) return tutte.find(p => p.codice === String(x.cod).trim());
+  const c = bnorm(x.cliente).trim(); if (!c) return null;
+  const ok = tutte.filter(p => bnorm(BOT_NOME(p)).includes(c));
+  return ok.sort((a, b) => String(b.key).localeCompare(String(a.key)))[0] || null;
+}
+async function botApplica(x) {
+  const p = botPratica(x);
+  if (x.tipo === "task") { await BOT_TASK(L => L.push({ id: "tk" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), creato: new Date().toISOString(), done: false, t: x.t || "", key: p?.key || "", due: x.due || "", ora: x.ora || "", prio: "", cod: p?.codice || "" })); return; }
+  if (!p) throw new Error("pratica non trovata (" + (x.cod || x.cliente || "?") + ")");
+  const imp = num(x.importo), d = x.data || new Date().toISOString().slice(0, 10);
+  if (x.tipo === "spesa") await salvaConto(p, c => { c.spese.push({ data: d, importo: imp, descr: x.descr || "" }); }, `Spesa anticipata ${eur(imp)} (da assistente)`);
+  else if (x.tipo === "pagamento") await salvaConto(p, c => { c.pagamenti.push({ data: d, importo: imp, nota: x.descr || "", modo: "" }); }, `Pagamento ricevuto ${eur(imp)} (da assistente)`);
+  else throw new Error("azione sconosciuta");
+}
+let BOT_BUSY = false; const BOT_ERR = new Set();
+async function botSync() {
+  const c = BOT_CFG(); if (!c || BOT_BUSY || !BOT_PRAT().length) return 0; BOT_BUSY = true;
+  try {
+    const base = c.u.replace(/\/$/, ""), r = await (await fetch(base + "/inbox?k=" + encodeURIComponent(c.k))).json();
+    const ok = [];
+    for (const x of (r.items || [])) { try { await botApplica(x); ok.push(x.id); } catch (e) { if (!BOT_ERR.has(x.id)) { BOT_ERR.add(x.id); toast("Assistente: " + e.message, true); } } }
+    if (ok.length) { await fetch(base + "/ack?k=" + encodeURIComponent(c.k), { method: "POST", body: JSON.stringify({ ids: ok }) }); toast(`Assistente Telegram: ${ok.length} ${ok.length === 1 ? "voce aggiunta" : "voci aggiunte"}`); try { BOT_DOPO(); } catch (e) {} }
+    return ok.length;
+  } catch (e) { return 0; } finally { BOT_BUSY = false; }
+}
+setInterval(botSync, 120000); setTimeout(botSync, 6000);
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") setTimeout(botSync, 1500); });
 async function avvio() {
   gcalRedirect();
   if (!CFG.clientId) return viewSetup();
