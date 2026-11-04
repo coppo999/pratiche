@@ -1374,15 +1374,17 @@ function editorPrev() {
 }
 
 /* ================= Conto: preventivo, pagamenti, spese anticipate ================= */
+const contConc = cod => num((((CONT_PRAT || {}).pratiche || {})[cod] || {}).concordato);
 function contoDi(m) {
   const c = JSON.parse(JSON.stringify(m.conto || {}));
   if (c.totale == null || c.totale === "") { const pv = (m.preventivi || []).slice(-1)[0]; c.totale = num(pv?.totale) || num(m.compenso) || num(((CONT_PRAT || {}).pratiche || {})[m.codice]?.concordato) || 0; c.auto = true; }
+  if (!c.auto && c.totale != null && c.totale !== "") { const cc = contConc(m.codice); if (cc && c.totaleSync != null && Math.abs(cc - num(c.totaleSync)) > 0.004 && Math.abs(cc - num(c.totale)) > 0.004) { c.totale = cc; c.daCont = true; } }
   c.pagamenti = c.pagamenti || []; c.spese = c.spese || [];
   const pagMan = c.pagamenti.reduce((s, x) => s + num(x.importo), 0), sp = c.spese.reduce((s, x) => s + num(x.importo), 0);
   const incC = num((((CONT_PRAT || {}).pratiche || {})[m.codice] || {}).totali?.incassato), pag = Math.max(pagMan, incC);
   return { c, pag, sp, rest: Math.round((num(c.totale) + sp - pag) * 100) / 100 };
 }
-const salvaConto = (p, fn, log) => modificaMeta(p, mm => { const { c } = contoDi(mm); fn(c); delete c.auto; mm.conto = c; if (log) diarioPush(mm, log + " (dal telefono)", "euro"); });
+const salvaConto = (p, fn, log) => modificaMeta(p, mm => { const { c } = contoDi(mm); const t0 = c.totale; fn(c); if (num(c.totale) !== num(t0)) c.totaleAgg = new Date().toISOString(); { const cc = contConc(mm.codice); if (cc) c.totaleSync = cc; } delete c.auto; mm.conto = c; if (log) diarioPush(mm, log + " (dal telefono)", "euro"); });
 function tabConto(p, body) {
   const m = PCUR.meta || metaOf(p), { c, pag, sp, rest } = contoDi(m);
   const riga = (x, i, k) => `<div class="ag-r" data-k="${k}" data-i="${i}"><span class="ag-o">${esc(dataBreve(x.data || oggi()))}</span><span class="ag-bar" style="background:${k === "pagamenti" ? "#22c55e" : "var(--gold)"}"></span><div class="tx"><b>${eur(num(x.importo))}</b><small>${esc(x.nota || x.descr || (k === "pagamenti" ? "Pagamento" : "Spesa"))}${x.modo ? " · " + esc(x.modo) : ""}${(x.allegati || []).length ? " · 📎 " + x.allegati.length : ""}</small></div></div>`;
