@@ -378,8 +378,8 @@ function parseDirName(year, name) {
 }
 function baseMeta(p) {
   const e = D.exp[p.key]; if (!e) return {};
-  if (e.meta) return { ...e.meta };
-  return { committente: e.cliente, comune: e.comune, indirizzo: e.indirizzo, canale: e.canale, tipo: e.tipo, stato: e.stato, statoAgg: e.statoAgg, compenso: e.compenso || "", notaBreve: e.nota || "", telefono: e.telefono || "", email: e.email || "", residenza: e.residenza || "", cf: e.cf || "" };
+  if (e.meta) return { ...e.meta, firmaSt: e.firma || "" };
+  return { committente: e.cliente, comune: e.comune, indirizzo: e.indirizzo, canale: e.canale, tipo: e.tipo, stato: e.stato, statoAgg: e.statoAgg, compenso: e.compenso || "", notaBreve: e.nota || "", firmaSt: e.firma || "", telefono: e.telefono || "", email: e.email || "", residenza: e.residenza || "", cf: e.cf || "" };
 }
 function metaOf(p) {
   const o = OV[p.key], b = baseMeta(p);
@@ -557,7 +557,7 @@ function rigaPratica(p) {
   const tit = m.committente ? titleCase(m.committente) : p.dir.replace(/^\d+-\d+_?/, "").replace(/[-_]+/g, " ");
   const sub = [m.tipo, [m.indirizzo, m.comune].filter(Boolean).map(titleCase).join(", ")].filter(Boolean).join(" · ") || p.dir;
   return `<div class="pr" data-k="${esc(p.key)}"><span class="cod" style="--cc:${CATCOL[p.cat] || CATCOL.altro}">${esc(p.codice || "—")}</span>
-    <div class="tx"><b>${esc(tit)}</b><small>${esc(sub)}</small>${m.notaBreve ? `<small>✎ ${esc(m.notaBreve)}</small>` : ""}</div>
+    <div class="tx"><b>${fkBadge(m)}${esc(tit)}</b><small>${esc(sub)}</small>${m.notaBreve ? `<small>✎ ${esc(m.notaBreve)}</small>` : ""}</div>
     ${st ? `<span class="st" style="--sc:${ST_COL[st] || "#94a3b8"}">${esc(STATI_BREVI[st] || st)}</span>` : ""}</div>`;
 }
 function disegnaLista() {
@@ -1696,6 +1696,8 @@ const FK_A = {
   apri: async (p, path, nome) => { const w = window.open("about:blank", "_blank"); const it = await gItem([String(p.anno), p.dir, ...path, nome]); if (it && w) w.location = it["@microsoft.graph.downloadUrl"]; else w?.close(); },
 };
 let FK_P = null;
+function fkStato(m) { const L = (m.firme || []).filter(f => f.stato !== "annullata"); if (L.some(f => f.stato === "attesa" && Date.parse(f.scade) > Date.now())) return "attesa"; if (L.some(f => f.stato === "firmato" && Date.now() - Date.parse(f.firmatoAt) < 30 * 864e5)) return "firmato"; return L.length ? "" : (m.firmaSt || ""); }
+const fkBadge = m => { const s = fkStato(m); return s ? `<span title="${s === "attesa" ? "Firma del cliente in attesa" : "Documento firmato dal cliente (ultimi 30 giorni)"}" style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:${s === "attesa" ? "#C9A84C" : "#2e9e5b"};color:#fff;font-size:11px;font-weight:700;margin-right:6px;flex:none;vertical-align:middle">${s === "attesa" ? "✍" : "✓"}</span>` : ""; };
 const fkKit = () => FK_P || (FK_P = (async () => { const r = await readJSON(["_strumenti", "firma-cliente", "config.json"]); if (!r) throw new Error("Servizio firma non configurato."); await new Promise((ok, ko) => { const s = document.createElement("script"); s.src = r.data.u + "/kit.js"; s.onload = ok; s.onerror = () => ko(new Error("Servizio firma non raggiungibile: controlla la connessione.")); document.head.appendChild(s); }); return window.FirmaKit.init(r.data, FK_A); })().catch(e => { FK_P = null; throw e; }));
 function tabFirma(p, body) { body.innerHTML = `<div class="ok">Carico…</div>`; fkKit().then(k => { if (PCUR.tab === "firm") return k.scheda(p, body); }).catch(e => { if (PCUR.tab === "firm") body.innerHTML = `<div class="card">${esc(e.message)}</div>`; }); }
 const fkSync = () => { if (!D?.prat?.length || !TOK) return; fkKit().then(k => k.sincronizza()).catch(e => console.warn("firma", e)); };
