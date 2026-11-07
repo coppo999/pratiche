@@ -1790,9 +1790,33 @@ function elencoClienti() {
   return Object.values(M).sort((a, b) => a.nome.localeCompare(b.nome, "it"));
 }
 let CL_Q = "";
+/* ---------- clienti da ricontattare dopo 12 mesi ---------- */
+function ricontatti() {
+  const lim = Date.now() - 365 * 864e5, per = {};
+  for (const p of D.prat) { const m = metaOf(p), nome = String(m.committente || "").trim(); if (!nome) continue;
+    const st = normStato(m.stato) || statoOf(p), d = Date.parse(m.statoAgg || m.dataApertura || `${p.anno}-12-31`) || 0;
+    const o = per[norm(nome)] || (per[norm(nome)] = { nome, ult: 0, aperte: false, ric: 0, p: null, m: null });
+    if (["in_corso", "attesa", "attesa_pagamento", "fattura_inviata", "nota_inviata", "sospesa"].includes(st)) o.aperte = true;
+    if (d > o.ult) { o.ult = d; o.p = p; o.m = m; }
+    o.ric = Math.max(o.ric, Date.parse(m.ricontattato || "") || 0); }
+  return Object.values(per).filter(o => o.p && !o.aperte && o.ult && o.ult < lim && (!o.ric || o.ric < lim)).sort((a, b) => a.ult - b.ult);
+}
+function ricontattiApri() {
+  const L = ricontatti();
+  sheet("Da ricontattare", L.length ? L.map((o, i) => `<div style="padding:10px 4px;border-bottom:1px solid var(--line)"><b>${esc(titleCase(o.nome))}</b><br><small class="muted">${esc([o.m.tipo, [o.m.indirizzo, o.m.comune].filter(Boolean).map(titleCase).join(", "), new Date(o.ult).toLocaleDateString("it-IT", { month: "short", year: "numeric" })].filter(Boolean).join(" · "))}</small>
+    <div class="row2" style="margin-top:8px"><button class="btn" data-w="${i}">${I.chat}WhatsApp</button><button class="btn" data-e="${i}">${I.mail}E-mail</button><button class="btn" data-f="${i}">${I.ok}Fatto</button></div></div>`).join("") : `<div class="empty">Nessun cliente da ricontattare</div>`, (bg, close) => {
+    const testo = o => { const c = titleCase(String(o.nome).split(/\s+/).slice(1).join(" ") || o.nome), t = String(o.m.tipo || "la pratica").toLowerCase(), dove = o.m.indirizzo ? ` per l'immobile in ${titleCase(o.m.indirizzo)}` : "";
+      return `Buongiorno ${c}, sono Davide Coppola. Le scrivo per sapere se è tutto a posto dopo ${t}${dove}. Se le serve altro (pratiche edilizie e catastali, APE, planimetrie) sono a disposizione. Se conosce qualcuno che ha bisogno, sarò felice di aiutarlo. Grazie e buona giornata!`; };
+    const tel = o => { const t = String(o.m.telefono || "").replace(/[^\d+]/g, ""); return t ? (t.startsWith("+") ? t.slice(1) : t.startsWith("00") ? t.slice(2) : "39" + t) : ""; };
+    $$("[data-w]", bg).forEach(b => b.onclick = () => { const o = L[b.dataset.w]; window.open(`https://wa.me/${tel(o)}?text=${encodeURIComponent(testo(o))}`, "_blank"); });
+    $$("[data-e]", bg).forEach(b => b.onclick = () => { const o = L[b.dataset.e]; location.href = `mailto:${o.m.email || ""}?subject=${encodeURIComponent("Studio Tecnico Coppola – tutto a posto?")}&body=${encodeURIComponent(testo(o))}`; });
+    $$("[data-f]", bg).forEach(b => b.onclick = async () => { const o = L[b.dataset.f]; b.disabled = true; try { await modificaMeta(o.p, mm => { mm.ricontattato = new Date().toISOString(); diarioPush(mm, "Cliente ricontattato dopo 12 mesi (dal telefono)", "dati"); }); b.closest("div[style]").remove(); toast("Segnato come ricontattato"); viewClienti(); } catch (e) { b.disabled = false; toast(e.message, true); } });
+  });
+}
 async function viewClienti() {
   app().innerHTML = `<header class="hdr"><div class="row"><h1>Clienti</h1><button class="ib" id="c-new">${I.plus}</button></div><div class="search"><input type="search" id="c-q" placeholder="Cerca nome, telefono, email…" value="${esc(CL_Q)}"></div></header><main><div class="list" id="c-l"><div class="empty"><span class="spin"></span> Carico…</div></div></main>${tabbar("c")}`;
   wireTabbar(); $("#c-new").onclick = () => editorCliente(null);
+  { const n = ricontatti().length; if (n) { const c = document.createElement("button"); c.className = "btn"; c.style.cssText = "width:100%;margin:0 0 10px"; c.textContent = `Da ricontattare (${n})`; c.onclick = ricontattiApri; $("#c-l").before(c); } }
   await Promise.all([D.cli ? 0 : clientiCarica().catch(() => (D.cli = [])), D.prev ? 0 : prevCarica().catch(() => {})]);
   const draw = () => { const toks = norm(CL_Q).split(/\s+/).filter(Boolean), el = $("#c-l"); if (!el) return;
     const L = elencoClienti().filter(c => toks.every(t => norm([c.nome, c.telefono, c.email, c.indirizzo, c.cf].join(" ")).includes(t)));
