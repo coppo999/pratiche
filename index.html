@@ -732,10 +732,198 @@ const CAMPI = [["committente", "Committente (cognome e nome)"], ["telefono", "Te
   ["residenza", "Residenza"], ["nascitaLuogo", "Luogo di nascita"], ["nascitaData", "Data di nascita", "date"], ["descrizione", "Descrizione lavori", "area"], ["note", "Note", "area"]];
 let CONT_PRAT = null;
 async function contLoad() { if (!CONT_PRAT) { try { CONT_PRAT = (await readJSON(["_sync", "fatture_per_pratica.json"]))?.data || null; } catch (e) {} } return CONT_PRAT; }
+/* ================= Fattura elettronica per Aruba (file XML da caricare con "Carica fattura") ================= */
+const FT = {
+  ced: { piva: "03885520134", cf: "CPPDVD99A24C933K", nome: "Davide", cognome: "Coppola", titolo: "Per. Ind.", albo: "Periti Industriali", nAlbo: "2236", via: "Via Andrea Costa", civ: "2", cap: "20017", comune: "Rho", prov: "MI", tel: "3381232370", email: "piedavidecoppola@gmail.com", banca: "Revolut", iban: "IT54N0366901600067012965259" },
+  causale: "Operazione non soggetta a ritenuta alla fonte a titolo di acconto ai sensi dell'articolo 1, comma 67, l. n. 190 del 2014 e successive modificazioni",
+};
+const ftR2 = n => Math.round((+n || 0) * 100) / 100;
+const ftF = n => ftR2(n).toFixed(2);
+const ftX = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&apos;" }[c])).replace(/[^\x09\x0a\x0d\x20-�]/g, "");
+/* calcolo come nelle fatture dello studio: cassa 5% su onorario + bollo; bollo 2 € se la parte esente supera 77,47 € */
+function ftCalcola(v) {
+  const S = ftR2(v.spese), bolloAuto = v.bollo === "auto";
+  const tot = (O, B) => { const c = ftR2((O + B) * 0.05); return { O, B, C: c, S, T: ftR2(O + B + c + S) }; };
+  let O, B;
+  if (v.modo === "totale") {
+    const T = ftR2(v.totale);
+    B = bolloAuto ? ((T - S) > 77.47 ? 2 : 0) : (v.bollo ? 2 : 0);
+    O = ftR2((T - S - B * 1.05) / 1.05);
+    for (let i = 0; i < 3; i++) { const r = tot(O, B); if (r.T === T) break; O = ftR2(O + (T - r.T)); }
+  } else {
+    O = ftR2(v.onorario);
+    B = bolloAuto ? ((O * 1.05) > 77.47 ? 2 : 0) : (v.bollo ? 2 : 0);
+  }
+  return tot(O, B);
+}
+function ftXml(v) {
+  const c = FT.ced, r = ftCalcola(v), n = String(v.numero).match(/(\d+)/)?.[1] || "1";
+  const cli = v.piva
+    ? `<IdFiscaleIVA><IdPaese>IT</IdPaese><IdCodice>${ftX(v.piva)}</IdCodice></IdFiscaleIVA>${v.cf ? `<CodiceFiscale>${ftX(v.cf.toUpperCase())}</CodiceFiscale>` : ""}<Anagrafica><Denominazione>${ftX(v.denominazione)}</Denominazione></Anagrafica>`
+    : `<CodiceFiscale>${ftX(String(v.cf).toUpperCase())}</CodiceFiscale><Anagrafica><Nome>${ftX(v.nome)}</Nome><Cognome>${ftX(v.cognome)}</Cognome></Anagrafica>`;
+  const righe = [[v.descrizione, r.O, "N2.2"], ...(r.S ? [["Spese anticipate", r.S, "N1"]] : []), ...(r.B ? [["Marca da bollo", r.B, "N2.2"]] : [])];
+  const L = righe.map(([d, imp, nat], i) => `
+      <DettaglioLinee>
+        <NumeroLinea>${i + 1}</NumeroLinea>
+        <Descrizione>${ftX(d)}</Descrizione>
+        <Quantita>1.00</Quantita>
+        <PrezzoUnitario>${ftF(imp)}</PrezzoUnitario>
+        <PrezzoTotale>${ftF(imp)}</PrezzoTotale>
+        <AliquotaIVA>0.00</AliquotaIVA>
+        <Natura>${nat}</Natura>
+      </DettaglioLinee>`).join("");
+  const dest = v.piva && v.sdi && v.sdi !== "0000000" ? v.sdi.toUpperCase() : "0000000";
+  return `<?xml version="1.0" encoding="utf-8"?>
+<FatturaElettronica versione="FPR12" xmlns="http://ivaservizi.agenziaentrate.gov.it/docs/xsd/fatture/v1.2">
+  <FatturaElettronicaHeader xmlns="">
+    <DatiTrasmissione>
+      <IdTrasmittente><IdPaese>IT</IdPaese><IdCodice>01879020517</IdCodice></IdTrasmittente>
+      <ProgressivoInvio>${n}</ProgressivoInvio>
+      <FormatoTrasmissione>FPR12</FormatoTrasmissione>
+      <CodiceDestinatario>${ftX(dest)}</CodiceDestinatario>${dest === "0000000" && v.pec ? `
+      <PECDestinatario>${ftX(v.pec)}</PECDestinatario>` : ""}
+    </DatiTrasmissione>
+    <CedentePrestatore>
+      <DatiAnagrafici>
+        <IdFiscaleIVA><IdPaese>IT</IdPaese><IdCodice>${c.piva}</IdCodice></IdFiscaleIVA>
+        <CodiceFiscale>${c.cf}</CodiceFiscale>
+        <Anagrafica><Nome>${c.nome}</Nome><Cognome>${c.cognome}</Cognome><Titolo>${c.titolo}</Titolo></Anagrafica>
+        <AlboProfessionale>${c.albo}</AlboProfessionale>
+        <NumeroIscrizioneAlbo>${c.nAlbo}</NumeroIscrizioneAlbo>
+        <RegimeFiscale>RF19</RegimeFiscale>
+      </DatiAnagrafici>
+      <Sede><Indirizzo>${c.via}</Indirizzo><NumeroCivico>${c.civ}</NumeroCivico><CAP>${c.cap}</CAP><Comune>${c.comune}</Comune><Provincia>${c.prov}</Provincia><Nazione>IT</Nazione></Sede>
+      <Contatti><Telefono>${c.tel}</Telefono><Email>${c.email}</Email></Contatti>
+    </CedentePrestatore>
+    <CessionarioCommittente>
+      <DatiAnagrafici>${cli}</DatiAnagrafici>
+      <Sede><Indirizzo>${ftX(v.via)}</Indirizzo>${v.civ ? `<NumeroCivico>${ftX(v.civ)}</NumeroCivico>` : ""}<CAP>${ftX(v.cap)}</CAP><Comune>${ftX(v.comune)}</Comune>${v.prov ? `<Provincia>${ftX(v.prov.toUpperCase())}</Provincia>` : ""}<Nazione>IT</Nazione></Sede>
+    </CessionarioCommittente>
+  </FatturaElettronicaHeader>
+  <FatturaElettronicaBody xmlns="">
+    <DatiGenerali>
+      <DatiGeneraliDocumento>
+        <TipoDocumento>TD06</TipoDocumento>
+        <Divisa>EUR</Divisa>
+        <Data>${v.data}</Data>
+        <Numero>${ftX(v.numero)}</Numero>${r.B ? `
+        <DatiBollo><BolloVirtuale>SI</BolloVirtuale><ImportoBollo>2.00</ImportoBollo></DatiBollo>` : ""}
+        <DatiCassaPrevidenziale>
+          <TipoCassa>TC17</TipoCassa>
+          <AlCassa>5.00</AlCassa>
+          <ImportoContributoCassa>${ftF(r.C)}</ImportoContributoCassa>
+          <ImponibileCassa>${ftF(r.O + r.B)}</ImponibileCassa>
+          <AliquotaIVA>0.00</AliquotaIVA>
+          <Natura>N2.2</Natura>
+        </DatiCassaPrevidenziale>
+        <ImportoTotaleDocumento>${ftF(r.T)}</ImportoTotaleDocumento>
+        <Causale>${ftX(FT.causale)}</Causale>
+      </DatiGeneraliDocumento>
+    </DatiGenerali>
+    <DatiBeniServizi>${L}
+      <DatiRiepilogo>
+        <AliquotaIVA>0.00</AliquotaIVA>
+        <Natura>N2.2</Natura>
+        <ImponibileImporto>${ftF(r.O + r.B + r.C)}</ImponibileImporto>
+        <Imposta>0.00</Imposta>
+        <RiferimentoNormativo>Non soggette - altri casi</RiferimentoNormativo>
+      </DatiRiepilogo>${r.S ? `
+      <DatiRiepilogo>
+        <AliquotaIVA>0.00</AliquotaIVA>
+        <Natura>N1</Natura>
+        <ImponibileImporto>${ftF(r.S)}</ImponibileImporto>
+        <Imposta>0.00</Imposta>
+        <RiferimentoNormativo>Escluso Art. 15 DPR 633/72</RiferimentoNormativo>
+      </DatiRiepilogo>` : ""}
+    </DatiBeniServizi>
+    <DatiPagamento>
+      <CondizioniPagamento>TP02</CondizioniPagamento>
+      <DettaglioPagamento>
+        <ModalitaPagamento>MP05</ModalitaPagamento>
+        <DataScadenzaPagamento>${v.scadenza || v.data}</DataScadenzaPagamento>
+        <ImportoPagamento>${ftF(r.T)}</ImportoPagamento>
+        <IstitutoFinanziario>${c.banca}</IstitutoFinanziario>
+        <IBAN>${c.iban}</IBAN>
+      </DettaglioPagamento>
+    </DatiPagamento>
+  </FatturaElettronicaBody>
+</FatturaElettronica>
+`;
+}
+function ftIndirizzo(s) {
+  const t = String(s || "").replace(/\s+/g, " ").trim();
+  const m = /^(.*?)[,\s]+(\d+\s?[A-Za-z]?(?:\/\w+)?)?[,\s-]*(\d{5})\s+(.+?)\s*(?:\(([A-Za-z]{2})\)|\s([A-Za-z]{2}))?$/.exec(t);
+  return m ? { via: m[1].replace(/[,\s]+$/, ""), civ: m[2] || "", cap: m[3], comune: m[4], prov: (m[5] || m[6] || "").toUpperCase() } : { via: t, civ: "", cap: "", comune: "", prov: "" };
+}
+async function ftApri(p) {
+  const m = { ...(await leggiMeta(p).catch(() => metaOf(p))) };
+  await contLoad();
+  const anno = new Date().getFullYear(), yy = String(anno).slice(2);
+  let max = 0; for (const v of Object.values((CONT_PRAT && CONT_PRAT.pratiche) || {})) for (const f of (v.fatture || [])) if (String(f.data || "").startsWith(String(anno))) { const k = +((String(f.numero).match(/\d+/) || [0])[0]); if (k > max) max = k; }
+  let usati = {}; try { usati = JSON.parse(localStorage.getItem("prsFtNum") || "{}"); } catch (e) {}
+  max = Math.max(max, usati[anno] || 0);
+  const ind = ftIndirizzo(m.residenza || [m.indirizzo, m.comune].filter(Boolean).join(", "));
+  const nomi = String(m.committente || "").trim().split(/\s+/), azienda = /\b(s\.?r\.?l|s\.?p\.?a|s\.?n\.?c|s\.?a\.?s|immobiliare|condominio|studio|societ)/i.test(m.committente || "");
+  const v0 = { numero: `FPR ${max + 1}/${yy}`, data: oggi(), cf: m.cf || "", piva: m.piva || "", sdi: m.sdi || "", pec: m.pecCliente || "",
+    denominazione: azienda ? m.committente : "", cognome: azienda ? "" : titleCase(nomi[0] || ""), nome: azienda ? "" : titleCase(nomi.slice(1).join(" ")), ...ind,
+    descrizione: `Prestazioni professionali${m.tipo ? " – " + m.tipo : ""}${m.indirizzo || m.comune ? " – immobile in " + [m.indirizzo, m.comune].filter(Boolean).map(titleCase).join(", ") : ""}` };
+  const campo = (k, l, t = "text") => `<div class="f"><label>${l}</label><input type="${t}" ${t === "number" ? 'step="0.01" inputmode="decimal"' : ""} data-k="${k}" value="${esc(v0[k] ?? "")}"></div>`;
+  sheet(`Fattura · pratica ${p.codice || ""}`, `
+    ${campo("numero", "Numero")}${campo("data", "Data", "date")}
+    <div class="f"><label>Calcolo</label><select data-k="modo"><option value="totale">Dal totale da incassare</option><option value="onorario">Dall'onorario</option></select></div>
+    <div class="f"><label id="ft-ml">Totale da incassare €</label><input type="number" step="0.01" inputmode="decimal" data-k="importo"></div>
+    ${campo("spese", "Spese anticipate € (art. 15)", "number")}
+    <div class="f"><label>Marca da bollo 2 €</label><select data-k="bollo"><option value="auto">Automatica (oltre 77,47 €)</option><option value="1">Sì</option><option value="">No</option></select></div>
+    <div class="f"><label>Cliente</label><select data-k="tipoCli"><option value="">Privato (codice fiscale)</option><option value="1" ${v0.piva || azienda ? "selected" : ""}>Azienda / P.IVA</option></select></div>
+    ${campo("descrizione", "Descrizione")}
+    <div class="ft-pr">${campo("cognome", "Cognome")}${campo("nome", "Nome")}${campo("cf", "Codice fiscale")}</div>
+    <div class="ft-az" style="display:none">${campo("denominazione", "Ragione sociale")}${campo("piva", "Partita IVA")}${campo("sdi", "Codice destinatario")}${campo("pec", "PEC (se senza codice)")}</div>
+    ${campo("via", "Via")}${campo("civ", "Civico")}${campo("cap", "CAP")}${campo("comune", "Comune")}${campo("prov", "Prov.")}
+    <div id="ft-anteprima" style="margin:12px 0"></div>
+    <div class="row2"><button class="btn" data-n>Annulla</button><button class="btn pri" id="ft-ok">Crea file Aruba</button></div>`, (ov, close) => {
+    const inp = k => [...ov.querySelectorAll(`[data-k="${k}"]`)].find(e => e.offsetParent !== null) || ov.querySelector(`[data-k="${k}"]`);
+    const leggi = () => { const az = inp("tipoCli").value === "1", g = k => (inp(k)?.value || "").trim(), imp = num(g("importo"));
+      return { modo: g("modo"), totale: imp, onorario: imp, spese: num(g("spese")), bollo: g("bollo") === "auto" ? "auto" : !!g("bollo"), numero: g("numero"), data: g("data"), descrizione: g("descrizione"),
+        piva: az ? g("piva").replace(/\D/g, "") : "", cf: g("cf").replace(/\s/g, "").toUpperCase(), sdi: az ? g("sdi") : "", pec: az ? g("pec") : "", denominazione: az ? g("denominazione") : "", nome: g("nome"), cognome: g("cognome"), via: g("via"), civ: g("civ"), cap: g("cap"), comune: g("comune"), prov: g("prov") }; };
+    const disegna = () => {
+      const az = inp("tipoCli").value === "1"; ov.querySelector(".ft-pr").style.display = az ? "none" : ""; ov.querySelector(".ft-az").style.display = az ? "" : "none";
+      const v = leggi(), r = ftCalcola(v), cli = az ? v.denominazione : `${v.cognome} ${v.nome}`.trim();
+      $("#ft-ml", ov).textContent = v.modo === "totale" ? "Totale da incassare €" : "Onorario €";
+      const rg = (d, x) => `<div style="display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px solid var(--line)"><span>${esc(d)}</span><b>${eur(x)}</b></div>`;
+      $("#ft-anteprima", ov).innerHTML = `<div style="border:1px solid var(--line);border-radius:12px;padding:12px;font-size:13px">
+        <b>Fattura ${esc(v.numero)}</b> del ${esc(v.data.split("-").reverse().join("/"))}<br><span class="muted">Spett.le</span> <b>${esc(cli || "—")}</b>
+        <div style="margin:8px 0">${rg(v.descrizione || "Prestazioni professionali", r.O)}${rg("Cassa previdenza 5%", r.C)}${r.B ? rg("Bollo", r.B) : ""}${r.S ? rg("Spese anticipate (art. 15)", r.S) : ""}</div>
+        <div style="display:flex;justify-content:space-between;font-size:15px"><b>Totale</b><b>${eur(r.T)}</b></div>
+        <div class="muted" style="font-size:11.5px;margin-top:6px">Regime forfettario. Bonifico: IBAN ${FT.ced.iban}</div></div>`;
+    };
+    ov.querySelectorAll("input,select").forEach(e => { e.addEventListener("input", disegna); e.addEventListener("change", disegna); });
+    disegna();
+    $("[data-n]", ov).onclick = close;
+    $("#ft-ok", ov).onclick = async () => {
+      const v = leggi(), r = ftCalcola(v), n = +((v.numero.match(/\d+/) || [0])[0]);
+      const err = !n ? "Numero fattura non valido" : !(r.T > 0) ? "Inserisci l'importo" : !v.descrizione ? "Manca la descrizione" : v.piva ? (!/^\d{11}$/.test(v.piva) ? "Partita IVA non valida (11 cifre)" : !v.denominazione ? "Manca la ragione sociale" : "") : (!/^[A-Z0-9]{16}$/.test(v.cf) ? "Codice fiscale non valido (16 caratteri)" : !v.cognome || !v.nome ? "Mancano nome e cognome" : "");
+      const err2 = err || (!v.via || !/^\d{5}$/.test(v.cap) || !v.comune ? "Indirizzo incompleto: via, CAP (5 cifre) e comune" : "");
+      if (err2) return toast(err2, true);
+      const b = $("#ft-ok", ov); b.disabled = true; b.textContent = "Salvo…";
+      try {
+        const nome = `IT03885520134_${String(n).padStart(5, "0")}.xml`;
+        const rr = await upload([String(p.anno), p.dir, nome], new File([ftXml(v)], nome, { type: "application/xml" }));
+        usati[anno] = Math.max(usati[anno] || 0, n); try { localStorage.setItem("prsFtNum", JSON.stringify(usati)); } catch (e) {}
+        await modificaMeta(p, mm => { mm.fattureXml = [...(mm.fattureXml || []), { numero: v.numero, data: v.data, totale: r.T, file: rr?.name || nome, creata: new Date().toISOString() }];
+          if (!mm.cf && v.cf && !v.piva) mm.cf = v.cf; if (!mm.residenza && v.via) mm.residenza = `${v.via} ${v.civ}, ${v.cap} ${v.comune}${v.prov ? " (" + v.prov.toUpperCase() + ")" : ""}`;
+          diarioPush(mm, `Fattura ${v.numero} preparata per Aruba: ${eur(r.T)}`, "conto"); });
+        close();
+        sheet("File pronto", `<p style="margin-top:0">Salvato <b>${esc(rr?.name || nome)}</b> nella cartella della pratica.</p><ol style="padding-left:18px;line-height:1.7"><li>Apri Aruba Fatturazione Elettronica › <b>Carica fattura</b>.</li><li>Scegli il file da OneDrive › cartella della pratica.</li><li>Controlla l'anteprima e premi <b>Invia</b>.</li></ol><div class="row2"><button class="btn" data-n>Chiudi</button><button class="btn pri" data-ar>Apri Aruba</button></div>`,
+          (o2, c2) => { $("[data-n]", o2).onclick = c2; $("[data-ar]", o2).onclick = () => window.open("https://fatturazioneelettronica.aruba.it/", "_blank"); });
+      } catch (e) { b.disabled = false; b.textContent = "Crea file Aruba"; toast("File non creato: " + e.message, true); }
+    };
+  });
+}
 async function tabContoCont(p, body) {
   await contLoad();
   tabConto(p, body);
   const h = document.createElement("h3"); h.textContent = "Contabilità della pratica"; h.style.margin = "22px 0 6px"; body.appendChild(h);
+  const fb = document.createElement("button"); fb.className = "btn"; fb.style.cssText = "margin:12px 0 0;width:100%"; fb.textContent = "Crea fattura per Aruba"; fb.onclick = () => ftApri(p).catch(e => toast(e.message, true)); body.appendChild(fb);
   const box = document.createElement("div"); body.appendChild(box);
   return tabCont(p, box);
 }
