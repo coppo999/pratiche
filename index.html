@@ -1876,7 +1876,7 @@ function botPratica(x) {
 }
 async function botApplica(x) {
   const p = botPratica(x);
-  if (x.tipo === "task") { await BOT_TASK(L => L.push({ id: "tk" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), creato: new Date().toISOString(), done: false, t: x.t || "", key: p?.key || "", due: x.due || "", ora: x.ora || "", prio: "", cod: p?.codice || "" })); return; }
+  if (x.tipo === "task") { await BOT_TASK(L => L.push({ id: "tk" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), creato: new Date().toISOString(), done: false, t: x.t || "", key: p?.key || "", due: x.due || "", ora: x.ora || "", prio: "", cod: p?.codice || "", ag: x.due ? 1 : 0 })); return; }
   if (!p) throw new Error("pratica non trovata (" + (x.cod || x.cliente || "?") + ")");
   const imp = num(x.importo), d = x.data || new Date().toISOString().slice(0, 10);
   if (x.tipo === "spesa") await salvaConto(p, c => { c.spese.push({ data: d, importo: imp, descr: x.descr || "" }); }, `Spesa anticipata ${eur(imp)} (da assistente)`);
@@ -1891,8 +1891,15 @@ async function botSync() {
     const ok = [];
     for (const x of (r.items || [])) { try { await botApplica(x); ok.push(x.id); } catch (e) { if (!BOT_ERR.has(x.id)) { BOT_ERR.add(x.id); toast("Assistente: " + e.message, true); } } }
     if (ok.length) { await fetch(base + "/ack?k=" + encodeURIComponent(c.k), { method: "POST", body: JSON.stringify({ ids: ok }) }); toast(`Assistente Telegram: ${ok.length} ${ok.length === 1 ? "voce aggiunta" : "voci aggiunte"}`); try { BOT_DOPO(); } catch (e) {} }
+    await botAgenda();
     return ok.length;
   } catch (e) { return 0; } finally { BOT_BUSY = false; }
+}
+async function botAgenda() {   // task del bot con una data (anche importati dal PC) → anche in Google Calendar
+  if (!gcal.ok() || !gcal.tok()) return;
+  const L = (await taskCarica()).filter(x => x.ag && !x.gev && !x.done && x.due); if (!L.length) return;
+  for (const x of L) { try { const ev = await gcal.add(eventoPratica(x.t, x.due, x.ora, 60, x.key && D.byKey[x.key])); await taskModifica(T => { const y = T.find(z => z.id === x.id); if (y) { y.gev = ev.id; delete y.ag; } }); } catch (e) { toast("Agenda: " + e.message, true); return; } }
+  toast(`Assistente: ${L.length} ${L.length === 1 ? "voce messa" : "voci messe"} in agenda`); try { BOT_DOPO(); } catch (e) {}
 }
 setInterval(botSync, 120000); setTimeout(botSync, 6000);
 /* ===== Firma del cliente: il kit arriva dal servizio online ===== */
