@@ -90,6 +90,7 @@ main{padding:8px 12px calc(84px + var(--sb))}
 .fi .tx{flex:1;min-width:0}
 .fi b{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:14.5px}
 .fi small{color:var(--muted);font-size:12px}
+.fi.sel{background:rgba(201,168,76,.18);box-shadow:inset 3px 0 0 #c9a84c}
 .fi .mn{flex:none;width:34px;height:34px;border:0;background:none;color:var(--muted);font-size:20px;cursor:pointer}
 .up{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}
 .dia{display:flex;flex-direction:column;gap:0}
@@ -360,6 +361,54 @@ async function mkdir(parentParts, name, conflict = "fail") {
   return gj(P(parentParts) + "/children", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, folder: {}, "@microsoft.graph.conflictBehavior": conflict }) });
 }
 const gRename = (id, name) => gj(`/me/drive/items/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) });
+/* ===== Link per i clienti (stile WeTransfer): copia i file scelti in «Per il cliente» e crea un link pubblico di sola lettura con scadenza ===== */
+const LINKF = ["_link_clienti.json"], LINKDIR = "Per il cliente";
+async function linkElenco() { try { D.link = (await readJSON(LINKF))?.data?.link || []; } catch (e) {} return D.link || []; }
+async function linkCrea(p, items, giorni, msg) {
+  const base = [String(p.anno), p.dir], d = new Date(), pad = x => String(x).padStart(2, "0");
+  try { await mkdir(base, LINKDIR); } catch (e) { if (e.status !== 409) throw e; }
+  const dest = await mkdir([...base, LINKDIR], `Invio_${oggi()}_${pad(d.getHours())}${pad(d.getMinutes())}`, "rename");
+  for (const [i, x] of items.entries()) { msg?.(`Copio ${i + 1}/${items.length}: ${x.name}`); const r = await gf(`/me/drive/items/${x.id}/copy`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ parentReference: { id: dest.id } }) }); if (!r.ok && r.status !== 202) throw new Error("copia non riuscita: " + x.name); }
+  msg?.("Attendo che OneDrive finisca la copia…");
+  for (let t = 0; t < 45; t++) { await sleep(2000); try { if ((await gList([...base, LINKDIR, dest.name])).length >= items.length) break; } catch (e) {} }
+  msg?.("Creo il link…");
+  const l = await gj(`/me/drive/items/${dest.id}/createLink`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "view", scope: "anonymous" }) });
+  const sc = new Date(Date.now() + giorni * 864e5);
+  const x = { id: "lk" + Date.now().toString(36), key: p.key, cod: p.codice || "", cartella: dest.name, itemId: dest.id, url: l.link.webUrl, creato: new Date().toISOString(), scade: `${sc.getFullYear()}-${pad(sc.getMonth() + 1)}-${pad(sc.getDate())}`, n: items.length, nomi: items.map(y => y.name).slice(0, 30) };
+  await jsonModifica(LINKF, "link", L => L.push(x)); (D.link = D.link || []).push(x);
+  try { logPratica(p, `Link per il cliente creato: ${x.n} file, scade il ${x.scade.split("-").reverse().join("/")}`, "file"); } catch (e) {}
+  return x;
+}
+async function linkElimina(x) {
+  try { await gDelete(x.itemId); } catch (e) { if (e.status !== 404) throw e; }
+  await jsonModifica(LINKF, "link", L => { const i = L.findIndex(y => y.id === x.id); if (i >= 0) L.splice(i, 1); }); D.link = (D.link || []).filter(y => y.id !== x.id);
+}
+async function linkPulisci() { const o = oggi(); for (const x of (await linkElenco()).filter(x => x.scade && x.scade < o)) { try { await linkElimina(x); } catch (e) {} } }
+const linkCopia = u => navigator.clipboard?.writeText(u).then(() => toast("Link copiato"), () => toast(u));
+function linkMostra(x) {
+  sheet("Link per il cliente", `<p class="hint" style="margin:0 4px 10px">${x.n} file · si cancella da solo il ${esc(x.scade.split("-").reverse().join("/"))}</p><div class="f"><input readonly value="${esc(x.url)}" onclick="this.select()"></div><div class="row2"><button class="btn pri" data-c>Copia link</button>${navigator.share ? `<button class="btn" data-s>Condividi…</button>` : ""}<button class="btn" data-x>Chiudi</button></div>`, (bg, close) => {
+    $("[data-c]", bg).onclick = () => linkCopia(x.url); $("[data-x]", bg).onclick = close;
+    const s = $("[data-s]", bg); if (s) s.onclick = () => navigator.share({ title: "Documenti", url: x.url }).catch(() => {});
+  });
+}
+function linkDialogo(p, items, dopo) {
+  sheet("Crea link per il cliente", `<p class="hint" style="margin:0 4px 10px">${items.length} element${items.length === 1 ? "o" : "i"}: ${esc(items.slice(0, 6).map(x => x.name).join(", "))}${items.length > 6 ? "…" : ""}</p><div class="f"><label>Il link si cancella da solo dopo</label><select id="lk-g"><option value="7">7 giorni</option><option value="14">14 giorni</option><option value="30" selected>30 giorni</option><option value="60">60 giorni</option><option value="90">90 giorni</option></select></div><div class="hint" id="lk-m" style="margin:0 4px 10px"></div><div class="row2"><button class="btn" data-n>Annulla</button><button class="btn pri" data-y>Crea link</button></div>`, (bg, close) => {
+    $("[data-n]", bg).onclick = close;
+    $("[data-y]", bg).onclick = async () => { const b = $("[data-y]", bg); b.disabled = true; b.innerHTML = `<span class="spin"></span>`;
+      try { const x = await linkCrea(p, items, +$("#lk-g", bg).value, t => { const m = $("#lk-m", bg); if (m) m.textContent = t; }); close(); linkMostra(x); dopo?.(x); }
+      catch (e) { b.disabled = false; b.textContent = "Crea link"; toast("Link non creato: " + e.message, true); } };
+  });
+}
+async function viewLinkPC(h) {
+  window.__linkpc = true; let d; try { d = JSON.parse(decodeURIComponent(h.slice(h.indexOf("?d=") + 3))); } catch (e) { d = null; }
+  app().innerHTML = `<header class="hdr"><div class="row"><h1>Link per il cliente</h1></div></header><div class="card" style="margin:12px"><div id="lp"><span class="spin"></span> Cerco i file su OneDrive…</div></div>`;
+  const el = $("#lp"); if (!d) { el.textContent = "Richiesta non valida."; return; }
+  const p = { anno: d.a, dir: d.dir, codice: d.cod, key: d.a + "/" + d.dir }, items = [], mancanti = [];
+  for (const n of d.n) { try { const it = await gItem([d.a, d.dir, ...(d.sub || []), n]); it ? items.push({ id: it.id, name: it.name }) : mancanti.push(n); } catch (e) { mancanti.push(n); } }
+  const fine = x => { el.innerHTML = `<p><b>Link pronto</b> · pratica ${esc(d.cod || "")} · scade il ${esc(x.scade.split("-").reverse().join("/"))}</p><div class="f"><input readonly value="${esc(x.url)}" onclick="this.select()"></div><div class="row2"><button class="btn pri" id="lp-c">Copia link</button><button class="btn" id="lp-x">Chiudi</button></div>`; $("#lp-c").onclick = () => linkCopia(x.url); $("#lp-x").onclick = () => window.close(); linkCopia(x.url); };
+  el.innerHTML = `<p>Pratica <b>${esc(d.cod || "")}</b> · ${items.length} element${items.length === 1 ? "o" : "i"} pront${items.length === 1 ? "o" : "i"}</p>${mancanti.length ? `<p class="hint">Non ancora su OneDrive (attendi la sincronizzazione e riprova): ${esc(mancanti.join(", "))}</p>` : ""}${items.length ? `<button class="btn pri" id="lp-go">Crea link…</button>` : ""}`;
+  if (items.length) { $("#lp-go").onclick = () => linkDialogo(p, items, fine); linkDialogo(p, items, fine); }
+}
 const gDelete = id => gj(`/me/drive/items/${id}`, { method: "DELETE" });
 async function gCopy(srcParts, destId, name) {
   const r = await gf(P(srcParts) + "/copy", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ parentReference: { id: destId }, name }) });
@@ -652,11 +701,18 @@ async function tabDoc(p, body) {
   const crumbs = [`<a href="#" data-c="0">${esc(p.codice || "Pratica")}</a>`, ...PCUR.sub.map((s, i) => `<a href="#" data-c="${i + 1}">${esc(s)}</a>`)].join(" › ");
   body.innerHTML = `<div class="crumbs">${crumbs}</div>
     <div class="up"><label class="btn gold">${I.cam}Scatta foto<input type="file" accept="image/*" capture="environment" id="d-cam" hidden></label>
-      <label class="btn">${I.up}Carica file<input type="file" multiple id="d-up" hidden></label></div>
+      <label class="btn">${I.up}Carica file<input type="file" multiple id="d-up" hidden></label><button class="btn" id="d-sel">${PCUR.selOn ? "Fine selezione" : "🔗 Seleziona per link"}</button></div>
     <div id="d-prog"></div><div class="fl" id="d-l"><div class="empty"><span class="spin"></span> Carico i file…</div></div>
+    <div id="d-selbar" style="position:sticky;bottom:78px;z-index:5"></div><div id="d-links"></div>
     <div class="row2" style="margin-top:10px"><button class="btn" id="d-new">${I.fold}Nuova cartella</button><button class="btn" id="d-ref">${I.ref}Aggiorna</button></div>`;
   $$("[data-c]", body).forEach(a => a.onclick = e => { e.preventDefault(); PCUR.sub = PCUR.sub.slice(0, +a.dataset.c); PCUR.files = null; tabDoc(p, body); });
   $("#d-ref", body).onclick = () => { PCUR.files = null; tabDoc(p, body); };
+  PCUR.sel = PCUR.sel || new Map();
+  const selBar = () => { const b = $("#d-selbar", body); if (!b) return; b.innerHTML = PCUR.selOn ? `<div class="card" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px"><b style="flex:1">${PCUR.sel.size} selezionat${PCUR.sel.size === 1 ? "o" : "i"}</b><button class="btn" data-sx>Annulla</button><button class="btn pri" data-sl ${PCUR.sel.size ? "" : "disabled"}>Crea link</button></div>` : "";
+    if (!PCUR.selOn) return; $("[data-sx]", b).onclick = () => { PCUR.selOn = false; PCUR.sel.clear(); tabDoc(p, body); };
+    $("[data-sl]", b).onclick = () => linkDialogo(p, [...PCUR.sel.values()], () => { PCUR.selOn = false; PCUR.sel.clear(); PCUR.sub = []; PCUR.files = null; tabDoc(p, body); }); };
+  $("#d-sel", body).onclick = () => { PCUR.selOn = !PCUR.selOn; if (!PCUR.selOn) PCUR.sel.clear(); else toast("Tocca i file da mettere nel link (puoi cambiare cartella)"); tabDoc(p, body); };
+  selBar();
   $("#d-new", body).onclick = async () => {
     const n = safeName(await chiedi("Nuova cartella", "Nome della cartella", "", "Crea")); if (!n) return;
     try { await mkdir(parts, n); logPratica(p, `Cartella creata: ${[...PCUR.sub, n].join(" / ")}`, "file"); PCUR.files = null; tabDoc(p, body); toast("Cartella creata"); }
@@ -687,14 +743,19 @@ async function tabDoc(p, body) {
     const icon = x.folder ? `<span class="ic dir">${I.list.replace('stroke="currentColor"', 'stroke="#fff"')}</span>` : th && !/\.pdf$/i.test(x.name) ? `<span class="ic" style="background-image:url('${esc(th)}')"></span>` : `<span class="ic" style="background:${col}">${esc(lab)}</span>`;
     const info = x.folder ? `${x.folder.childCount ?? ""} elementi` : `${fmtSize(x.size)} · ${dataIt(x.lastModifiedDateTime)}`;
     const href = x.folder ? "#" : apribile(x.name) ? x["@microsoft.graph.downloadUrl"] : x.webUrl;
-    return `<a class="fi" data-i="${i}" href="${esc(href || "#")}" ${x.folder ? "" : 'target="_blank" rel="noopener"'}>${icon}<span class="tx"><b>${esc(x.name)}</b><small>${esc(info)}</small></span><button class="mn" data-m="${i}">⋯</button></a>`;
+    return `<a class="fi${PCUR.sel.has(x.id) ? " sel" : ""}" data-i="${i}" href="${esc(href || "#")}" ${x.folder ? "" : 'target="_blank" rel="noopener"'}>${icon}<span class="tx"><b>${esc(x.name)}</b><small>${esc(info)}</small></span><button class="mn" data-m="${i}">⋯</button></a>`;
   }).join("") : `<div class="empty">Cartella vuota</div>`;
   $$(".fi", el).forEach(a => a.onclick = e => {
     const x = L[+a.dataset.i];
     if (e.target.closest("[data-m]")) { e.preventDefault(); return menuFile(p, x, body); }
     e.preventDefault();
+    if (PCUR.selOn && !x.folder) { PCUR.sel.has(x.id) ? PCUR.sel.delete(x.id) : PCUR.sel.set(x.id, { id: x.id, name: x.name }); a.classList.toggle("sel", PCUR.sel.has(x.id)); return selBar(); }
     if (x.folder) { PCUR.sub = [...PCUR.sub, x.name]; PCUR.files = null; tabDoc(p, body); } else apriFile(x, apribile(x.name));
   });
+  if (!PCUR.sub.length) linkElenco().then(L => { const b = $("#d-links", body), M = L.filter(x => x.key === p.key); if (!b || !M.length) return;
+    b.innerHTML = `<div class="card" style="margin-top:10px"><h3>Link attivi per il cliente · ${M.length}</h3>${M.map((x, i) => `<div style="display:flex;gap:8px;align-items:center;padding:6px 0"><span style="flex:1">🔗 ${x.n} file<br><small class="hint">scade il ${esc(x.scade.split("-").reverse().join("/"))}</small></span><button class="btn" data-lc="${i}">Copia</button><button class="btn" data-ld="${i}">Elimina</button></div>`).join("")}</div>`;
+    $$("[data-lc]", b).forEach(k => k.onclick = () => linkMostra(M[+k.dataset.lc]));
+    $$("[data-ld]", b).forEach(k => k.onclick = async () => { k.disabled = true; try { await linkElimina(M[+k.dataset.ld]); toast("Link eliminato"); PCUR.files = null; tabDoc(p, body); } catch (e) { toast("Errore: " + e.message, true); } }); });
 }
 async function apriFile(x, diretto) {   // i link di OneDrive scadono dopo un'ora: li chiedo nuovi a ogni apertura
   const w = window.open("", "_blank");
@@ -1855,7 +1916,10 @@ function editorCliente(c) {
 
 /* ================= avvio e navigazione ================= */
 function route() {
+  if (window.__linkpc) return;
   const h = location.hash || "#/";
+  const lp = ls.get("ps_linkpend", null); if (lp) { ls.del("ps_linkpend"); return viewLinkPC(lp); }
+  if (h.startsWith("#/link?")) return viewLinkPC(h);
   let m;
   if ((m = /^#\/p\/(.+)$/.exec(h))) return viewPratica(decodeURIComponent(m[1]));
   if (h === "#/nuova") return viewNuova();
@@ -1925,6 +1989,7 @@ const fkSync = () => { if (!D?.prat?.length || !TOK) return; fkKit().then(k => k
 setInterval(fkSync, 300000); setTimeout(fkSync, 12000);
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") setTimeout(botSync, 1500); });
 async function avvio() {
+  if (location.hash.startsWith("#/link?")) ls.set("ps_linkpend", location.hash);
   gcalRedirect();
   if (!CFG.clientId) return viewSetup();
   try { await handleRedirect(); } catch (e) { return viewLogin("Accesso non riuscito: " + e.message); }
@@ -1936,6 +2001,7 @@ async function avvio() {
   if (!location.hash.startsWith("#/p/") && location.hash !== "#/nuova") route();
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && Date.now() - (window.__lastLoad || 0) > 5 * 60e3) { window.__lastLoad = Date.now(); caricaTutto(true).then(() => { if (!location.hash.startsWith("#/p/") && location.hash !== "#/nuova") route(); }); } });
   window.__lastLoad = Date.now();
+  linkPulisci();
 }
 avvio();
 </script>
