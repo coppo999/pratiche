@@ -466,8 +466,10 @@ async function prevModifica(fn) {
 function prevNumero(L, anno) { const yy = String(anno).slice(2); let mx = 0; L.forEach(x => { const m = /^P(\d+)-(\d{2})$/.exec(x.numero || ""); if (m && m[2] === yy && +m[1] > mx) mx = +m[1]; }); return `P${mx + 1}-${yy}`; }
 
 /* ================= Interfaccia ================= */
-const UI = ls.get("ps_ui", { filtro: "aperte", q: "", anno: "" });
-const salvaUI = () => ls.set("ps_ui", { filtro: UI.filtro, q: UI.q, anno: UI.anno });
+const UI = { ...ls.get("ps_ui", { filtro: "aperte", anno: "" }), q: "" };
+let uiNascosto = 0;
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") { uiNascosto = Date.now(); return; } if (UI.q && uiNascosto && Date.now() - uiNascosto > 60e3) { UI.q = ""; if (!location.hash || location.hash === "#/") route(); } });
+const salvaUI = () => ls.set("ps_ui", { filtro: UI.filtro, anno: UI.anno });
 const app = () => $("#app");
 function sheet(title, html, onMount) {
   const bg = document.createElement("div"); bg.className = "sheet-bg";
