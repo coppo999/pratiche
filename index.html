@@ -577,7 +577,7 @@ function viewLogin(msg) {
 let listaN = 60;
 function viewLista() {
   const anni = [...new Set(D.prat.map(p => p.anno))];
-  app().innerHTML = `<header class="hdr"><div class="row"><h1>Pratiche</h1><button class="ib" id="l-ore" title="Ore lavorate" style="font-size:18px">⏱</button><button class="ib" id="l-pv" title="Preventivi">${I.euro}</button><button class="ib" id="l-ref" title="Aggiorna">${I.ref}</button><button class="ib" id="l-cfg" title="Impostazioni">${I.cog}</button></div>
+  app().innerHTML = `<header class="hdr"><div class="row"><h1>Pratiche</h1><button class="ib" id="l-pv" title="Preventivi">${I.euro}</button><button class="ib" id="l-ref" title="Aggiorna">${I.ref}</button><button class="ib" id="l-cfg" title="Impostazioni">${I.cog}</button></div>
       <div class="search"><input type="search" id="l-q" placeholder="Cerca numero, cliente, comune, via…" value="${esc(UI.q)}" enterkeyhint="search"></div></header>
     <div class="chips" id="l-f">${[["aperte", "Aperte"], ["dapagare", "Da pagare"], ["tutte", "Tutte"]].map(([k, l]) => `<button class="chip ${UI.filtro === k ? "on" : ""}" data-f="${k}">${l}</button>`).join("")}
       ${anni.map(a => `<button class="chip ${String(UI.anno) === String(a) ? "on" : ""}" data-a="${a}">${a}</button>`).join("")}</div>
@@ -589,7 +589,6 @@ function viewLista() {
   $("#l-ref").onclick = async () => { $("#l-ref").innerHTML = `<span class="spin"></span>`; await caricaTutto(); viewLista(); toast("Elenco aggiornato da OneDrive"); };
   $("#l-cfg").onclick = impostazioni;
   $("#l-pv").onclick = () => { location.hash = "#/preventivi"; };
-  $("#l-ore").onclick = async () => { try { if (!D.ore) await oreCarica(); } catch (e) {} oreSheet(null); };
   disegnaLista();
 }
 function filtrate() {
