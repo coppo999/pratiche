@@ -577,7 +577,7 @@ function viewLogin(msg) {
 let listaN = 60;
 function viewLista() {
   const anni = [...new Set(D.prat.map(p => p.anno))];
-  app().innerHTML = `<header class="hdr"><div class="row"><h1>Pratiche</h1><button class="ib" id="l-pv" title="Preventivi">${I.euro}</button><button class="ib" id="l-ref" title="Aggiorna">${I.ref}</button><button class="ib" id="l-cfg" title="Impostazioni">${I.cog}</button></div>
+  app().innerHTML = `<header class="hdr"><div class="row"><h1>Pratiche</h1><button class="ib" id="l-ore" title="Ore lavorate" style="font-size:18px">⏱</button><button class="ib" id="l-pv" title="Preventivi">${I.euro}</button><button class="ib" id="l-ref" title="Aggiorna">${I.ref}</button><button class="ib" id="l-cfg" title="Impostazioni">${I.cog}</button></div>
       <div class="search"><input type="search" id="l-q" placeholder="Cerca numero, cliente, comune, via…" value="${esc(UI.q)}" enterkeyhint="search"></div></header>
     <div class="chips" id="l-f">${[["aperte", "Aperte"], ["dapagare", "Da pagare"], ["tutte", "Tutte"]].map(([k, l]) => `<button class="chip ${UI.filtro === k ? "on" : ""}" data-f="${k}">${l}</button>`).join("")}
       ${anni.map(a => `<button class="chip ${String(UI.anno) === String(a) ? "on" : ""}" data-a="${a}">${a}</button>`).join("")}</div>
@@ -589,6 +589,7 @@ function viewLista() {
   $("#l-ref").onclick = async () => { $("#l-ref").innerHTML = `<span class="spin"></span>`; await caricaTutto(); viewLista(); toast("Elenco aggiornato da OneDrive"); };
   $("#l-cfg").onclick = impostazioni;
   $("#l-pv").onclick = () => { location.hash = "#/preventivi"; };
+  $("#l-ore").onclick = async () => { try { if (!D.ore) await oreCarica(); } catch (e) {} oreSheet(null); };
   disegnaLista();
 }
 function filtrate() {
@@ -984,7 +985,13 @@ async function ftApri(p) {
 }
 async function tabContoCont(p, body) {
   await contLoad();
+  try { if (!D.ore) await oreCarica(); } catch (e) {}
   tabConto(p, body);
+  { const O = oreDi(p).sort((a, b) => (b.data || "").localeCompare(a.data || "")), tot = O.reduce((a, o) => a + (+o.ore || 0), 0), card = document.createElement("div"); card.className = "card ag";
+    card.innerHTML = `<h3>Ore lavorate · ${fmtOre(tot)}</h3>${O.slice(0, 10).map(o => `<div class="ag-r"><span class="ag-o">${esc(dataBreve(o.data || oggi()))}</span><div class="tx"><b>${fmtOre(+o.ore)}</b><small>${esc(o.nota || "")}</small></div><button class="btn" style="padding:4px 10px" data-od="${esc(o.id)}">✕</button></div>`).join("")}<div class="row2" style="margin-top:8px"><button class="btn" data-oa>${I.plus}Ore</button></div>`;
+    body.appendChild(card);
+    $("[data-oa]", card).onclick = () => oreSheet(p, () => tabContoCont(p, body));
+    $$("[data-od]", card).forEach(b => b.onclick = async () => { try { await oreModifica(L => { const i = L.findIndex(x => x.id === b.dataset.od); if (i >= 0) L.splice(i, 1); }); tabContoCont(p, body); } catch (e) { toast(e.message, true); } }); }
   const h = document.createElement("h3"); h.textContent = "Contabilità della pratica"; h.style.margin = "22px 0 6px"; body.appendChild(h);
   const fb = document.createElement("button"); fb.className = "btn"; fb.style.cssText = "margin:12px 0 0;width:100%"; fb.textContent = "Crea fattura per Aruba"; fb.onclick = () => ftApri(p).catch(e => toast(e.message, true)); body.appendChild(fb);
   const box = document.createElement("div"); body.appendChild(box);
@@ -1688,6 +1695,26 @@ const nomePratica = p => `${p.codice || ""} ${titleCase(metaOf(p).committente ||
 
 /* ================= Task (Lavoro\_task.json, condiviso con il PC) ================= */
 const PRIO = { u: ["Urgente", "#f87171"], h: ["Alta", "#fb923c"] };
+/* ===== Ore lavorate (Lavoro\_ore.json, condiviso con PC e Contabilità) ===== */
+const oreCarica = async () => (D.ore = (await readJSON(["_ore.json"]))?.data?.ore || []);
+const oreModifica = async fn => (D.ore = await jsonModifica(["_ore.json"], "ore", fn));
+const oreDi = p => (D.ore || []).filter(o => o.key === p.key || (p.codice && o.cod === p.codice));
+const fmtOre = h => String(Math.round(h * 100) / 100).replace(".", ",") + " h";
+function oreSheet(p0, dopo) {
+  sheet("Ore lavorate", `<div class="f"><label>Data</label><input type="date" id="or-d" value="${oggi()}"></div>
+    ${p0 ? `<p class="hint" style="margin:0 4px 10px">Pratica <b>${esc(p0.codice || "")}</b> ${esc(metaOf(p0).committente || "")}</p>` : `<div class="f"><label>Pratica</label><input id="or-p" list="or-dl" placeholder="es. 87-26" autocomplete="off"><datalist id="or-dl">${D.prat.filter(p => p.codice).sort((a, b) => String(b.key).localeCompare(String(a.key))).slice(0, 250).map(p => `<option value="${esc(p.codice)}">${esc(metaOf(p).committente || "")}</option>`).join("")}</datalist></div>`}
+    <div class="f"><label>Ore</label><input id="or-h" inputmode="decimal" placeholder="es. 1,5"></div><div class="f"><label>Nota</label><input id="or-n" placeholder="facoltativa (es. sopralluogo)"></div>
+    <div class="row2"><button class="btn" data-n>Annulla</button><button class="btn pri" data-y>Salva</button></div>`, (bg, close) => {
+    $("[data-n]", bg).onclick = close;
+    $("[data-y]", bg).onclick = async () => {
+      const cod = p0 ? p0.codice : $("#or-p", bg).value.trim(), p = p0 || D.prat.find(x => x.codice === cod), h = num($("#or-h", bg).value);
+      if (!p) return toast("Pratica non trovata", true); if (!(h > 0)) return toast("Scrivi le ore", true);
+      const b = $("[data-y]", bg); b.disabled = true;
+      try { await oreModifica(L => L.push({ id: "h" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), data: $("#or-d", bg).value, cod: p.codice || "", key: p.key, ore: h, nota: $("#or-n", bg).value.trim(), da: "telefono" })); close(); toast(`${fmtOre(h)} su ${p.codice}`); dopo?.(); }
+      catch (e) { b.disabled = false; toast("Non salvato: " + e.message, true); }
+    };
+  });
+}
 const taskCarica = async () => (D.task = (await readJSON(["_task.json"]))?.data?.task || []);
 const taskModifica = async fn => (D.task = await jsonModifica(["_task.json"], "task", fn));
 function taskRiga(x) {
