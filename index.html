@@ -1783,7 +1783,7 @@ const TF_PL = "https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min
 const TF_LAB = { tf: "Timbro e firma", timbro: "Timbro", firma: "Firma" };
 const tfScript = src => new Promise((ok, ko) => { const s = document.createElement("script"); s.src = src; s.onload = ok; s.onerror = () => ko(new Error("Servono internet per caricare lo strumento PDF")); document.head.appendChild(s); });
 async function tfPdfjs() { if (!window.pdfjsLib) await tfScript(TF_PJ); if (!pdfjsLib.GlobalWorkerOptions.workerSrc) pdfjsLib.GlobalWorkerOptions.workerSrc = TF_PW; return pdfjsLib; }
-async function stampaPdf(o) {
+async function stampaPdfOld(o) {
   if (!Object.keys(o.imgs).length) throw new Error("Metti l'immagine timbro_firma.png nella cartella Lavoro\\_firma_timbro");
   const [PL, pj] = await Promise.all([window.PDFLib ? window.PDFLib : tfScript(TF_PL).then(() => window.PDFLib), o.pdfjs ? o.pdfjs() : tfPdfjs()]);
   const doc = await pj.getDocument({ data: o.bytes.slice(), verbosity: 0 }).promise;
@@ -1813,6 +1813,68 @@ async function stampaPdf(o) {
   ov.querySelectorAll("[data-p]").forEach(b => b.onclick = () => { const n = pg + +b.dataset.p; if (n >= 1 && n <= doc.numPages) { pg = n; render(); } });
   ov.querySelectorAll("[data-add]").forEach(b => b.onclick = () => { const k = b.dataset.add; const m = { k, page: pg, x: 0.55, y: 0.78, w: k === "tf" ? 0.3 : k === "timbro" ? 0.22 : 0.25 }; marks.push(m); sel = m; paint(); });
   $q("#tf-sz input").oninput = e => { if (!sel) return; sel.w = +e.target.value / 100; sel.x = Math.min(sel.x, 1 - sel.w); paint(); };
+  $q("[data-del]").onclick = () => { const i = marks.indexOf(sel); if (i >= 0) marks.splice(i, 1); sel = null; paint(); };
+  $q("[data-x]").onclick = close;
+  $q("[data-ok]").onclick = async () => {
+    if (!marks.length) return o.toast ? o.toast("Aggiungi almeno un timbro o una firma", true) : alert("Aggiungi almeno un timbro o una firma");
+    const b = $q("[data-ok]"); b.disabled = true; b.textContent = "Salvo…";
+    try { const pd = await PL.PDFDocument.load(o.bytes, { ignoreEncryption: true }); const emb = {};
+      for (const k of Object.keys(url)) { const bb = o.imgs[k]; emb[k] = bb[0] === 0x89 ? await pd.embedPng(bb) : await pd.embedJpg(bb); }
+      for (const m of marks) { const pgn = pd.getPage(m.page - 1); const { width, height } = pgn.getSize(); const rot = pgn.getRotation().angle % 360; if (rot) throw new Error("La pagina " + m.page + " è ruotata: non supportata"); const im = emb[m.k], w = m.w * width, h = w * im.height / im.width; pgn.drawImage(im, { x: m.x * width, y: height - m.y * height - h, width: w, height: h }); }
+      const out = await pd.save(); const nome = o.nome.replace(/\.pdf$/i, "") + " (firmato).pdf"; await o.salva(out, nome); close();
+    } catch (e) { b.disabled = false; b.textContent = "Salva copia firmata"; if (o.toast) o.toast("Errore: " + e.message, true); else alert(e.message); } };
+  await render();
+}
+async function tfPulisci(b) {   // toglie lo sfondo bianco (se l'immagine non è già trasparente)
+  try {
+    const bm = await createImageBitmap(new Blob([b])), sc = Math.min(1, 1600 / bm.width);
+    const c = document.createElement("canvas"); c.width = Math.round(bm.width * sc); c.height = Math.round(bm.height * sc);
+    const x = c.getContext("2d", { willReadFrequently: true }); x.drawImage(bm, 0, 0, c.width, c.height);
+    const d = x.getImageData(0, 0, c.width, c.height), p = d.data;
+    for (let i = 3; i < p.length; i += 4) if (p[i] < 250) return b;
+    for (let i = 0; i < p.length; i += 4) { const m = Math.min(p[i], p[i + 1], p[i + 2]); p[i + 3] = m >= 235 ? 0 : m <= 170 ? 255 : Math.round((235 - m) / 65 * 255); }
+    x.putImageData(d, 0, 0);
+    return new Uint8Array(await (await new Promise(r => c.toBlob(r, "image/png"))).arrayBuffer());
+  } catch (e) { return b; }
+}
+async function stampaPdf(o) {
+  if (!Object.keys(o.imgs).length) throw new Error("Metti l'immagine timbro_firma.png nella cartella Lavoro\\_firma_timbro");
+  const [PL, pj] = await Promise.all([window.PDFLib ? window.PDFLib : tfScript(TF_PL).then(() => window.PDFLib), o.pdfjs ? o.pdfjs() : tfPdfjs()]);
+  for (const k of Object.keys(o.imgs)) o.imgs[k] = await tfPulisci(o.imgs[k]);
+  const doc = await pj.getDocument({ data: o.bytes.slice(), verbosity: 0 }).promise;
+  const url = {}; for (const k of Object.keys(o.imgs)) { const b = o.imgs[k]; url[k] = URL.createObjectURL(new Blob([b], { type: b[0] === 0x89 ? "image/png" : "image/jpeg" })); }
+  const marks = []; let pg = 1, sel = null, cw = 1, ch = 1;
+  const bs = "padding:10px 14px;border-radius:8px;border:0;font-size:15px";
+  const ov = document.createElement("div");
+  ov.style.cssText = "position:fixed;inset:0;z-index:99999;background:#1e293b;display:flex;flex-direction:column;font:14px system-ui,sans-serif;color:#fff";
+  ov.innerHTML = `<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding:8px;background:#0f172a">
+    <button data-p="-1" style="${bs}">◀</button><b id="tf-n" style="min-width:56px;text-align:center"></b><button data-p="1" style="${bs}">▶</button>
+    ${Object.keys(url).map(k => `<button data-add="${k}" style="${bs};background:#2563eb;color:#fff">+ ${TF_LAB[k] || k}</button>`).join("")}
+    <span id="tf-sz" style="display:none;gap:6px"><button data-sz="-1" style="${bs};font-size:18px">−</button><button data-sz="1" style="${bs};font-size:18px">+</button></span><button data-del style="display:none;${bs};background:#dc2626;color:#fff">Togli</button>
+    <span style="flex:1"></span><button data-ok style="${bs};background:#16a34a;color:#fff;font-weight:700">Salva copia firmata</button><button data-x style="${bs}">Chiudi</button></div>
+    <div id="tf-sc" style="flex:1;overflow:auto;display:flex;justify-content:center;padding:10px;touch-action:pan-x pan-y"><div id="tf-w" style="position:relative;background:#fff;height:fit-content"><canvas id="tf-c" style="display:block"></canvas></div></div>`;
+  document.body.appendChild(ov);
+  const $q = s => ov.querySelector(s), W = $q("#tf-w"), C = $q("#tf-c");
+  const close = () => { ov.remove(); Object.values(url).forEach(u => URL.revokeObjectURL(u)); };
+  const ui = () => { $q("#tf-sz").style.display = $q("[data-del]").style.display = sel ? "flex" : "none"; };
+  const paint = () => { W.querySelectorAll(".tf-b").forEach(i => i.remove()); marks.filter(m => m.page === pg).forEach(m => {
+    const bx = document.createElement("div"); bx.className = "tf-b"; bx.style.cssText = `position:absolute;left:${m.x * cw}px;top:${m.y * ch}px;width:${m.w * cw}px;touch-action:none;cursor:move;outline:${m === sel ? "2px dashed #2563eb" : "none"}`;
+    const im = document.createElement("img"); im.src = url[m.k]; im.draggable = false; im.style.cssText = "display:block;width:100%;pointer-events:none"; bx.appendChild(im);
+    bx.onpointerdown = e => { e.preventDefault(); sel = m; bx.setPointerCapture(e.pointerId); const sx = e.clientX, sy = e.clientY, ox = m.x, oy = m.y;
+      bx.onpointermove = ev => { m.x = Math.max(0, Math.min(1 - m.w, ox + (ev.clientX - sx) / cw)); m.y = Math.max(0, oy + (ev.clientY - sy) / ch); bx.style.left = m.x * cw + "px"; bx.style.top = m.y * ch + "px"; };
+      bx.onpointerup = () => { bx.onpointermove = null; paint(); }; };
+    bx.onwheel = e => { e.preventDefault(); sel = m; m.w = Math.max(.05, Math.min(.9, m.w * (e.deltaY < 0 ? 1.08 : 1 / 1.08))); m.x = Math.min(m.x, 1 - m.w); paint(); };
+    if (m === sel) { const h = document.createElement("div"); h.style.cssText = "position:absolute;right:-12px;bottom:-12px;width:24px;height:24px;border-radius:50%;background:#2563eb;border:2px solid #fff;cursor:nwse-resize;touch-action:none";
+      h.onpointerdown = e => { e.preventDefault(); e.stopPropagation(); h.setPointerCapture(e.pointerId); const sx = e.clientX, w0 = m.w; h.onpointermove = ev => { m.w = Math.max(.05, Math.min(1 - m.x, w0 + (ev.clientX - sx) / cw)); bx.style.width = m.w * cw + "px"; }; h.onpointerup = () => { h.onpointermove = null; paint(); }; };
+      bx.appendChild(h); }
+    W.appendChild(bx); }); ui(); };
+  const k15 = window.devicePixelRatio > 1 ? 1.5 : 1;
+  const render = async () => { const page = await doc.getPage(pg); const v0 = page.getViewport({ scale: 1 }); const s = Math.min((ov.clientWidth - 24) / v0.width, 1400 / v0.width); const v = page.getViewport({ scale: s * k15 });
+    C.width = v.width; C.height = v.height; C.style.width = v.width / k15 + "px"; C.style.height = v.height / k15 + "px"; cw = parseFloat(C.style.width); ch = parseFloat(C.style.height);
+    await page.render({ canvasContext: C.getContext("2d"), viewport: v }).promise; $q("#tf-n").textContent = `${pg}/${doc.numPages}`; sel = null; paint(); };
+  ov.querySelectorAll("[data-p]").forEach(b => b.onclick = () => { const n = pg + +b.dataset.p; if (n >= 1 && n <= doc.numPages) { pg = n; render(); } });
+  ov.querySelectorAll("[data-add]").forEach(b => b.onclick = () => { const k = b.dataset.add; const m = { k, page: pg, x: 0.55, y: 0.78, w: k === "tf" ? 0.3 : k === "timbro" ? 0.22 : 0.25 }; marks.push(m); sel = m; paint(); });
+  ov.querySelectorAll("[data-sz]").forEach(b => b.onclick = () => { if (!sel) return; sel.w = Math.max(.05, Math.min(.9, sel.w * (+b.dataset.sz > 0 ? 1.15 : 1 / 1.15))); sel.x = Math.min(sel.x, 1 - sel.w); paint(); });
   $q("[data-del]").onclick = () => { const i = marks.indexOf(sel); if (i >= 0) marks.splice(i, 1); sel = null; paint(); };
   $q("[data-x]").onclick = close;
   $q("[data-ok]").onclick = async () => {
