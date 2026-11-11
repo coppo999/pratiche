@@ -1751,13 +1751,14 @@ async function viewOggi() {
     <div class="search"><input type="search" id="o-q" placeholder="Cerca una pratica o un cliente…" enterkeyhint="search"></div></header>
     <main><div id="o-res"></div><div class="og-kp" id="o-kp"></div><div id="o-g"><div class="empty"><span class="spin"></span> Carico…</div></div></main>${tabbar("o")}`;
   wireTabbar();
-  $("#o-ref").onclick = async () => { D.task = null; D.ore = null; await caricaTutto(); viewOggi(); };
+  $("#o-ref").onclick = async () => { D.task = null; D.ore = null; CONT_PRAT = null; await caricaTutto(); viewOggi(); };
   $("#o-new").onclick = () => editorTask(null, "", viewOggi);
   $("#o-q").oninput = e => { const t = norm(e.target.value).split(/\s+/).filter(Boolean), res = $("#o-res"); if (!t.length) { res.innerHTML = ""; return; }
     const L = D.prat.filter(p => { const m = metaOf(p); const h = norm([p.dir, p.codice, m.committente, m.comune, m.indirizzo, m.canale, m.tipo, m.cf, m.descrizione, m.protocollo, m.note, m.telefono].join(" ")); return t.every(x => h.includes(x)); }).slice(0, 8);
     res.innerHTML = `<div class="card og-sec">${L.map(p => ogPratica(p)).join("") || '<div class="hint">Nessuna pratica</div>'}</div>`; ogWire(res); };
   try { if (!D.task) await taskCarica(); } catch (e) {}
   try { if (!D.ore) await oreCarica(); } catch (e) {}
+  try { await contLoad(); } catch (e) {}
   const tk = D.task || [], ore = D.ore || [], ap = tk.filter(x => !x.done);
   const late = ap.filter(x => x.due && x.due < o), oggiT = ap.filter(x => x.due === o), dom = ap.filter(x => x.due === domani());
   const ult = p => { const m = metaOf(p), L = m.diario || []; const a = L.length ? L[L.length - 1].t : ""; return a > (m.aggiornato || "") ? a : (m.aggiornato || ""); };
