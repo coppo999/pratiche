@@ -1780,19 +1780,20 @@ async function viewOggi() {
 }
 /* ===== Timbro e firma su PDF (copia firmata accanto all'originale) ===== */
 const TF_PL = "https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js", TF_PJ = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js", TF_PW = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+const TF_LAB = { tf: "Timbro e firma", timbro: "Timbro", firma: "Firma" };
 const tfScript = src => new Promise((ok, ko) => { const s = document.createElement("script"); s.src = src; s.onload = ok; s.onerror = () => ko(new Error("Servono internet per caricare lo strumento PDF")); document.head.appendChild(s); });
 async function tfPdfjs() { if (!window.pdfjsLib) await tfScript(TF_PJ); if (!pdfjsLib.GlobalWorkerOptions.workerSrc) pdfjsLib.GlobalWorkerOptions.workerSrc = TF_PW; return pdfjsLib; }
 async function stampaPdf(o) {
-  if (!o.imgs.timbro && !o.imgs.firma) throw new Error("Metti timbro.png e/o firma.png nella cartella Lavoro\\_firma_timbro");
+  if (!Object.keys(o.imgs).length) throw new Error("Metti l'immagine timbro_firma.png nella cartella Lavoro\\_firma_timbro");
   const [PL, pj] = await Promise.all([window.PDFLib ? window.PDFLib : tfScript(TF_PL).then(() => window.PDFLib), o.pdfjs ? o.pdfjs() : tfPdfjs()]);
   const doc = await pj.getDocument({ data: o.bytes.slice(), verbosity: 0 }).promise;
-  const url = {}; for (const k of ["timbro", "firma"]) if (o.imgs[k]) { const b = o.imgs[k]; url[k] = URL.createObjectURL(new Blob([b], { type: b[0] === 0x89 ? "image/png" : "image/jpeg" })); }
+  const url = {}; for (const k of Object.keys(o.imgs)) { const b = o.imgs[k]; url[k] = URL.createObjectURL(new Blob([b], { type: b[0] === 0x89 ? "image/png" : "image/jpeg" })); }
   const marks = []; let pg = 1, sel = null, cw = 1, ch = 1;
   const ov = document.createElement("div");
   ov.style.cssText = "position:fixed;inset:0;z-index:99999;background:#1e293b;display:flex;flex-direction:column;font:14px system-ui,sans-serif;color:#fff";
   ov.innerHTML = `<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding:8px;background:#0f172a">
     <button data-p="-1" style="${"padding:10px 14px;border-radius:8px;border:0;font-size:15px"}">◀</button><b id="tf-n" style="min-width:56px;text-align:center"></b><button data-p="1" style="padding:10px 14px;border-radius:8px;border:0;font-size:15px">▶</button>
-    ${url.timbro ? `<button data-add="timbro" style="padding:10px 12px;border-radius:8px;border:0;background:#2563eb;color:#fff;font-size:15px">+ Timbro</button>` : ""}${url.firma ? `<button data-add="firma" style="padding:10px 12px;border-radius:8px;border:0;background:#2563eb;color:#fff;font-size:15px">+ Firma</button>` : ""}
+    ${Object.keys(url).map(k => `<button data-add="${k}" style="padding:10px 12px;border-radius:8px;border:0;background:#2563eb;color:#fff;font-size:15px">+ ${TF_LAB[k] || k}</button>`).join("")}
     <label id="tf-sz" style="display:none;align-items:center;gap:6px">Misura<input type="range" min="5" max="70" value="25"></label><button data-del style="display:none;padding:10px 12px;border-radius:8px;border:0;background:#dc2626;color:#fff;font-size:15px">Togli</button>
     <span style="flex:1"></span><button data-ok style="padding:10px 14px;border-radius:8px;border:0;background:#16a34a;color:#fff;font-size:15px;font-weight:700">Salva copia firmata</button><button data-x style="padding:10px 14px;border-radius:8px;border:0;font-size:15px">Chiudi</button></div>
     <div id="tf-sc" style="flex:1;overflow:auto;display:flex;justify-content:center;padding:10px;touch-action:pan-x pan-y"><div id="tf-w" style="position:relative;background:#fff;height:fit-content"><canvas id="tf-c" style="display:block"></canvas></div></div>`;
@@ -1810,7 +1811,7 @@ async function stampaPdf(o) {
     C.width = v.width; C.height = v.height; C.style.width = v.width / (window.devicePixelRatio > 1 ? 1.5 : 1) + "px"; C.style.height = v.height / (window.devicePixelRatio > 1 ? 1.5 : 1) + "px"; cw = parseFloat(C.style.width); ch = parseFloat(C.style.height);
     await page.render({ canvasContext: C.getContext("2d"), viewport: v }).promise; $q("#tf-n").textContent = `${pg}/${doc.numPages}`; sel = null; paint(); };
   ov.querySelectorAll("[data-p]").forEach(b => b.onclick = () => { const n = pg + +b.dataset.p; if (n >= 1 && n <= doc.numPages) { pg = n; render(); } });
-  ov.querySelectorAll("[data-add]").forEach(b => b.onclick = () => { const k = b.dataset.add; const m = { k, page: pg, x: 0.55, y: 0.78, w: k === "timbro" ? 0.22 : 0.25 }; marks.push(m); sel = m; paint(); });
+  ov.querySelectorAll("[data-add]").forEach(b => b.onclick = () => { const k = b.dataset.add; const m = { k, page: pg, x: 0.55, y: 0.78, w: k === "tf" ? 0.3 : k === "timbro" ? 0.22 : 0.25 }; marks.push(m); sel = m; paint(); });
   $q("#tf-sz input").oninput = e => { if (!sel) return; sel.w = +e.target.value / 100; sel.x = Math.min(sel.x, 1 - sel.w); paint(); };
   $q("[data-del]").onclick = () => { const i = marks.indexOf(sel); if (i >= 0) marks.splice(i, 1); sel = null; paint(); };
   $q("[data-x]").onclick = close;
@@ -1828,7 +1829,7 @@ async function tfFoto(p, x, body) {
   try { toast("Preparo il PDF…");
     const get = async it => new Uint8Array(await (await fetch(it["@microsoft.graph.downloadUrl"])).arrayBuffer());
     const bytes = await get(await gj(`/me/drive/items/${x.id}`)); const imgs = {};
-    for (const k of ["timbro", "firma"]) for (const e of [".png", ".jpg", ".jpeg"]) { if (imgs[k]) break; const it = await gItem(["_firma_timbro", k + e]); if (it) imgs[k] = await get(it); }
+    for (const k of ["timbro_firma", "timbro", "firma"]) for (const e of [".png", ".jpg", ".jpeg"]) { const kk = k === "timbro_firma" ? "tf" : k; if (imgs[kk]) break; const it = await gItem(["_firma_timbro", k + e]); if (it) imgs[kk] = await get(it); } if (imgs.tf) { delete imgs.timbro; delete imgs.firma; }
     await stampaPdf({ bytes, nome: x.name, imgs, toast, salva: async (b, n) => { toast("Salvo su OneDrive…"); await upload([String(p.anno), p.dir, ...PCUR.sub, n], new File([b], n, { type: "application/pdf" })); logPratica(p, "PDF con timbro e firma: " + n, "firma"); PCUR.files = null; tabDoc(p, body); toast("Salvato: " + n); } });
   } catch (e) { toast(e.message, true); }
 }
