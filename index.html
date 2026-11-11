@@ -45,6 +45,9 @@ main{padding:8px 12px calc(84px + var(--sb))}
 .tabbar{position:fixed;left:0;right:0;bottom:0;z-index:30;display:flex;background:var(--panel);border-top:1px solid var(--line);padding:6px 6px calc(6px + var(--sb))}
 .tabbar button{flex:1;border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11.5px;font-weight:600;color:var(--muted);padding:4px;cursor:pointer}
 .tabbar button svg{width:23px;height:23px}
+.og-r{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:12px 4px;border-top:1px solid var(--line);min-height:48px}.og-r:first-of-type{border-top:0}.og-r b{font-weight:600;font-size:14.5px}.og-r small{display:block;color:var(--mut,#64748b);font-size:12.5px}.og-r span{color:var(--mut,#64748b);font-size:13px;white-space:nowrap}
+.og-kp{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:10px 16px 0}.og-kp div{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:12.5px;color:var(--mut,#64748b)}.og-kp b{display:block;font-size:19px;color:var(--navy,#0f172a)}
+.og-sec{margin:12px 16px 0;padding:12px 14px}.og-sec h3{margin:0 0 4px;font-size:14px;display:flex;justify-content:space-between}.og-sec h3 small{font-weight:500;color:var(--mut,#64748b)}
 .tabbar button.on{color:var(--navy)}
 @media (prefers-color-scheme:dark){.tabbar button.on{color:var(--gold)}}
 .tabbar .plus{color:#fff!important}
@@ -545,7 +548,7 @@ function conferma(title, txt, okLab = "Conferma", bad) {
 }
 function tabbar(on) {
   const b = (k, h, ic, l) => `<button data-go="${h}" class="${on === k ? "on" : ""}">${ic}${l}</button>`;
-  return `<nav class="tabbar">${b("p", "#/", I.list, "Pratiche")}${b("t", "#/task", I.task, "Task")}<button data-go="#/nuova" class="plus"><span class="pl">${I.plus}</span>Nuova</button>${b("a", "#/agenda", I.cal, "Agenda")}${b("c", "#/clienti", I.user, "Clienti")}</nav>`;
+  return `<nav class="tabbar">${b("o", "#/oggi", I.cal, "Oggi")}${b("p", "#/", I.list, "Pratiche")}<button data-go="#/nuova" class="plus"><span class="pl">${I.plus}</span>Nuova</button>${b("a", "#/agenda", I.cal, "Agenda")}${b("c", "#/clienti", I.user, "Clienti")}</nav>`;
 }
 function wireTabbar() { $$("[data-go]").forEach(b => b.onclick = () => { location.hash = b.dataset.go; }); }
 
@@ -640,6 +643,7 @@ function impostazioni() {
 let PCUR = { key: "", tab: "doc", sub: [], meta: null, files: null, filesAt: 0 };
 async function viewPratica(key, tab) {
   const p = D.byKey[key];
+  if (p) { const R = [key, ...ls.get("ps_recenti", []).filter(x => x !== key)].slice(0, 8); ls.set("ps_recenti", R); }
   if (!p) { app().innerHTML = `<div class="empty" style="padding-top:80px">Pratica non trovata.<br><br><a href="#/">Torna all'elenco</a></div>`; return; }
   if (PCUR.key !== key) PCUR = { key, tab: tab || PCUR.tab || "doc", sub: [], meta: null, files: null, filesAt: 0 };
   const m = metaOf(p);
@@ -1737,6 +1741,41 @@ function listaTask(el, key) {
       catch (er) { toast(er.message, true); } listaTask(el, key); };
     r.onclick = () => editorTask(x, null, () => listaTask(el, key)); });
 }
+function ogPratica(p, dx) { const m = metaOf(p); return `<div class="og-r" data-k="${esc(p.key)}"><div><b>${esc(p.codice || "—")} · ${esc(titleCase(m.committente || p.label || p.dir))}</b><small>${esc([String(p.cat || "altro").toUpperCase(), m.comune ? titleCase(m.comune) : ""].filter(Boolean).join(" · "))}</small></div>${dx ? `<span>${esc(dx)}</span>` : ""}</div>`; }
+function ogWire(el) { $$(".og-r", el).forEach(r => r.onclick = () => { location.hash = "#/p/" + encodeURIComponent(r.dataset.k); }); }
+async function viewOggi() {
+  const o = oggi();
+  app().innerHTML = `<header class="hdr"><div class="row"><h1>Oggi</h1><button class="ib" id="o-ref" title="Aggiorna">${I.ref}</button><button class="ib" id="o-new" title="Nuovo task">${I.plus}</button></div><div class="sub">${new Date().toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" })}</div>
+    <div class="search"><input type="search" id="o-q" placeholder="Cerca una pratica o un cliente…" enterkeyhint="search"></div></header>
+    <main><div id="o-res"></div><div class="og-kp" id="o-kp"></div><div id="o-g"><div class="empty"><span class="spin"></span> Carico…</div></div></main>${tabbar("o")}`;
+  wireTabbar();
+  $("#o-ref").onclick = async () => { D.task = null; D.ore = null; await caricaTutto(); viewOggi(); };
+  $("#o-new").onclick = () => editorTask(null, "", viewOggi);
+  $("#o-q").oninput = e => { const t = norm(e.target.value).split(/\s+/).filter(Boolean), res = $("#o-res"); if (!t.length) { res.innerHTML = ""; return; }
+    const L = D.prat.filter(p => { const m = metaOf(p); const h = norm([p.dir, p.codice, m.committente, m.comune, m.indirizzo, m.canale, m.tipo, m.cf, m.descrizione, m.protocollo, m.note, m.telefono].join(" ")); return t.every(x => h.includes(x)); }).slice(0, 8);
+    res.innerHTML = `<div class="card og-sec">${L.map(p => ogPratica(p)).join("") || '<div class="hint">Nessuna pratica</div>'}</div>`; ogWire(res); };
+  try { if (!D.task) await taskCarica(); } catch (e) {}
+  try { if (!D.ore) await oreCarica(); } catch (e) {}
+  const tk = D.task || [], ore = D.ore || [], ap = tk.filter(x => !x.done);
+  const late = ap.filter(x => x.due && x.due < o), oggiT = ap.filter(x => x.due === o), dom = ap.filter(x => x.due === domani());
+  const ult = p => { const m = metaOf(p), L = m.diario || []; const a = L.length ? L[L.length - 1].t : ""; return a > (m.aggiornato || "") ? a : (m.aggiornato || ""); };
+  const y = new Date().getFullYear();
+  const fermi = D.prat.filter(p => !ST_CHIUSI.includes(statoOf(p)) && !["sospesa", "attesa"].includes(statoOf(p)) && p.anno >= y - 1).map(p => ({ p, g: Math.floor((Date.now() - new Date(ult(p) || 0).getTime()) / 864e5) })).filter(x => x.g >= 14 && x.g < 2000).sort((a, b) => b.g - a.g).slice(0, 8);
+  const inc = D.prat.map(p => { const st = statoOf(p); if (st === "non_eseguita" || !(["conclusa", "pagata"].includes(st) || ST_DAPAGARE.includes(st))) return null; const r = contoDi({ ...metaOf(p), codice: p.codice }).rest; return r > 1 ? { p, r } : null; }).filter(Boolean).sort((a, b) => b.r - a.r);
+  const totInc = inc.reduce((s, x) => s + x.r, 0), oreOggi = ore.filter(x => x.data === o).reduce((s, x) => s + (+String(x.ore).replace(",", ".") || 0), 0);
+  $("#o-kp").innerHTML = `<div><b>${late.length + oggiT.length}</b>task da fare</div><div><b>${fermi.length}</b>pratiche ferme</div><div><b>${eur(totInc)}</b>da incassare</div><div><b>${String(Math.round(oreOggi * 100) / 100).replace(".", ",")} h</b>ore di oggi</div>`;
+  const rec = ls.get("ps_recenti", []).map(k => D.byKey[k]).filter(Boolean);
+  const tl = [...late, ...oggiT, ...dom].slice(0, 10);
+  $("#o-g").innerHTML = `<div class="card og-sec"><h3>Task <small>${late.length ? late.length + " in ritardo" : "oggi e domani"}</small></h3><div id="o-tk">${tl.map(taskRiga).join("") || '<div class="hint" style="padding:8px 0">Niente in scadenza oggi o domani</div>'}</div><button class="btn" id="o-all" style="margin-top:8px;width:100%">Tutti i task</button></div>
+    <div class="card og-sec"><h3>Pratiche ferme <small>14+ giorni senza attività</small></h3>${fermi.map(x => ogPratica(x.p, x.g + " gg")).join("") || '<div class="hint">Tutto in movimento</div>'}</div>
+    <div class="card og-sec"><h3>Incassi da fare <small>${eur(totInc)}</small></h3>${inc.slice(0, 8).map(x => ogPratica(x.p, eur(x.r))).join("") || '<div class="hint">Nessun incasso in sospeso</div>'}</div>
+    <div class="card og-sec"><h3>Aperte di recente</h3>${rec.map(p => ogPratica(p)).join("") || '<div class="hint">Le pratiche che apri compaiono qui</div>'}</div>`;
+  ogWire($("#o-g")); $("#o-all").onclick = () => { location.hash = "#/task"; };
+  $$("#o-tk .tk").forEach(r => { const x = D.task.find(z => z.id === r.dataset.id); if (!x) return;
+    $("[data-chk]", r).onclick = async e => { e.stopPropagation(); r.classList.toggle("done");
+      try { await taskModifica(L => { const q = L.find(z => z.id === x.id); if (q) { q.done = !q.done; q.fatto = q.done ? new Date().toISOString() : ""; } }); if (!x.done && D.byKey[x.key]) logPratica(D.byKey[x.key], "Task completato: " + x.t, "manuale"); } catch (er) { toast(er.message, true); } viewOggi(); };
+    r.onclick = () => editorTask(x, null, viewOggi); });
+}
 async function viewTask() {
   app().innerHTML = `<header class="hdr"><div class="row"><h1>Task</h1><button class="ib" id="t-ref">${I.ref}</button><button class="ib" id="t-new">${I.plus}</button></div><div class="sub">Cose da fare, con scadenza e pratica collegata</div></header>
     <main><div id="t-l"><div class="empty"><span class="spin"></span> Carico…</div></div></main>${tabbar("t")}`;
@@ -1943,6 +1982,7 @@ function editorCliente(c) {
 /* ================= avvio e navigazione ================= */
 function route() {
   if (window.__linkpc) return;
+  if (!location.hash) { history.replaceState(null, "", "#/oggi"); }
   const h = location.hash || "#/";
   const lp = ls.get("ps_linkpend", null); if (lp) { ls.del("ps_linkpend"); return viewLinkPC(lp); }
   if (h.startsWith("#/link?")) return viewLinkPC(h);
@@ -1950,6 +1990,7 @@ function route() {
   if ((m = /^#\/p\/(.+)$/.exec(h))) return viewPratica(decodeURIComponent(m[1]));
   if (h === "#/nuova") return viewNuova();
   if (h === "#/preventivi") return viewPreventivi();
+  if (h === "#/oggi") return viewOggi();
   if (h === "#/task") return viewTask();
   if (h === "#/agenda") return viewAgenda();
   if (h === "#/clienti") return viewClienti();
