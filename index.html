@@ -1366,10 +1366,10 @@ async function tabCont(p, body) {
   const lista = (titolo, righe) => `<h3 style="margin:14px 0 6px">${titolo} · ${righe.length}</h3>` + (righe.length ? righe.join("") : `<div class="muted">Nessuno.</div>`);
   const riga = (a, b, c2) => `<div style="display:flex;justify-content:space-between;gap:8px;padding:7px 0;border-bottom:1px solid rgba(127,127,127,.2);font-size:14px"><span>${a}<br><span style="font-size:12px;opacity:.7">${b}</span></span><b style="white-space:nowrap">${c2}</b></div>`;
   body.innerHTML = `
-    <div style="display:flex;gap:8px;flex-wrap:wrap">${kpi("Fatturato", t.fatturato)}${kpi("Incassato", t.incassato)}${kpi("Da incassare", t.daIncassare)}${kpi("Spese", t.spese)}${kpi("Costi esterni", t.esterni)}</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">${kpi("Fatturato", t.fatturato)}${kpi("Incassato", t.incassato)}${kpi("Da incassare", t.daIncassare)}${kpi("Spese", t.spese)}${kpi("Pagamenti NF", t.esterni)}</div>
     ${lista("Fatture", c.fatture.map(f => riga(esc(f.cliente) + " · n. " + esc(f.numero), dataIt(f.data) + " · " + esc(f.tipo) + " · " + (f.stato === "incassato" ? "incassata" : "da incassare"), eur(f.totale))))}
     ${lista("Spese anticipate", c.spese.map(x => riga(esc(x.descrizione || x.categoria), dataIt(x.data) + " · " + esc(x.categoria), eur(x.importo))))}
-    ${lista("Costi esterni", c.esterni.map(x => riga(esc(x.soggetto), dataIt(x.data) + " · " + esc(x.stato), eur(x.importo))))}
+    ${lista("Pagamenti NF (senza fattura)", c.esterni.map(x => riga(esc(x.soggetto), dataIt(x.data) + " · " + esc(x.stato), eur(x.importo))))}
     <div class="muted" style="font-size:12px;margin-top:12px">Aggiornato al ${esc(ag)}</div>`;
 }
 function tabDati(p, body) {
