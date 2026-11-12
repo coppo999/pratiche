@@ -1852,7 +1852,7 @@ async function stampaPdf(o) {
   ov.style.cssText = "position:fixed;inset:0;z-index:99999;background:#1e293b;display:flex;flex-direction:column;font:14px system-ui,sans-serif;color:#fff";
   ov.innerHTML = `<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding:8px;background:#0f172a">
     <button data-p="-1" style="${bs}">◀</button><b id="tf-n" style="min-width:56px;text-align:center"></b><button data-p="1" style="${bs}">▶</button>
-    ${Object.keys(url).map(k => `<button data-add="${k}" style="${bs};background:#2563eb;color:#fff">+ ${TF_LAB[k] || k}</button>`).join("")}
+    <span style="opacity:.85">Tocca la pagina dove inserirlo</span>${Object.keys(url).length > 1 ? Object.keys(url).map(k => `<button data-tool="${k}" style="${bs};background:#2563eb;color:#fff">${TF_LAB[k] || k}</button>`).join("") : ""}
     <span id="tf-sz" style="display:none;gap:6px"><button data-sz="-1" style="${bs};font-size:18px">−</button><button data-sz="1" style="${bs};font-size:18px">+</button></span><button data-del style="display:none;${bs};background:#dc2626;color:#fff">Togli</button>
     <span style="flex:1"></span><button data-ok style="${bs};background:#16a34a;color:#fff;font-weight:700">Salva copia firmata</button><button data-x style="${bs}">Chiudi</button></div>
     <div id="tf-sc" style="flex:1;overflow:auto;display:flex;justify-content:center;padding:10px;touch-action:pan-x pan-y"><div id="tf-w" style="position:relative;background:#fff;height:fit-content"><canvas id="tf-c" style="display:block"></canvas></div></div>`;
@@ -1876,7 +1876,13 @@ async function stampaPdf(o) {
     C.width = v.width; C.height = v.height; C.style.width = v.width / k15 + "px"; C.style.height = v.height / k15 + "px"; cw = parseFloat(C.style.width); ch = parseFloat(C.style.height);
     await page.render({ canvasContext: C.getContext("2d"), viewport: v }).promise; $q("#tf-n").textContent = `${pg}/${doc.numPages}`; sel = null; paint(); };
   ov.querySelectorAll("[data-p]").forEach(b => b.onclick = () => { const n = pg + +b.dataset.p; if (n >= 1 && n <= doc.numPages) { pg = n; render(); } });
-  ov.querySelectorAll("[data-add]").forEach(b => b.onclick = () => { const k = b.dataset.add; const m = { k, page: pg, x: 0.55, y: 0.78, w: k === "tf" ? 0.3 : k === "timbro" ? 0.22 : 0.25 }; marks.push(m); sel = m; paint(); });
+  let tool = Object.keys(url)[0]; const ar = {};
+  await Promise.all(Object.keys(url).map(k => new Promise(r => { const i = new Image(); i.onload = () => { ar[k] = i.naturalHeight / i.naturalWidth; r(); }; i.onerror = r; i.src = url[k]; })));
+  const marcaTool = () => ov.querySelectorAll("[data-tool]").forEach(b => { b.style.outline = b.dataset.tool === tool ? "2px solid #fff" : "none"; });
+  ov.querySelectorAll("[data-tool]").forEach(b => b.onclick = () => { tool = b.dataset.tool; sel = null; paint(); marcaTool(); }); marcaTool();
+  C.style.cursor = "crosshair";
+  C.onclick = e => { const r = C.getBoundingClientRect(), w = tool === "tf" ? 0.3 : tool === "timbro" ? 0.22 : 0.25, h = w * cw * (ar[tool] || 0.4) / ch, x = Math.max(0, Math.min(1 - w, (e.clientX - r.left) / cw - w / 2)), y = Math.max(0, (e.clientY - r.top) / ch - h / 2);
+    if (sel && sel.page === pg) { sel.x = x; sel.y = y; } else { sel = { k: tool, page: pg, w, x, y }; marks.push(sel); } paint(); };
   ov.querySelectorAll("[data-sz]").forEach(b => b.onclick = () => { if (!sel) return; sel.w = Math.max(.05, Math.min(.9, sel.w * (+b.dataset.sz > 0 ? 1.15 : 1 / 1.15))); sel.x = Math.min(sel.x, 1 - sel.w); paint(); });
   $q("[data-del]").onclick = () => { const i = marks.indexOf(sel); if (i >= 0) marks.splice(i, 1); sel = null; paint(); };
   $q("[data-x]").onclick = close;
