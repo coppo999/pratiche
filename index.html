@@ -371,7 +371,7 @@ async function linkCrea(p, items, giorni, msg) {
   const base = [String(p.anno), p.dir], d = new Date(), pad = x => String(x).padStart(2, "0");
   try { await mkdir(base, LINKDIR); } catch (e) { if (e.status !== 409) throw e; }
   const dest = await mkdir([...base, LINKDIR], `Invio_${oggi()}_${pad(d.getHours())}${pad(d.getMinutes())}`, "rename");
-  for (const [i, x] of items.entries()) { msg?.(`Copio ${i + 1}/${items.length}: ${x.name}`); const r = await gf(`/me/drive/items/${x.id}/copy`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ parentReference: { id: dest.id } }) }); if (!r.ok && r.status !== 202) throw new Error("copia non riuscita: " + x.name); }
+  for (const [i, x] of items.entries()) { msg?.(`Copio ${i + 1}/${items.length}: ${x.name}`); const r = await gf(`/me/drive/items/${x.id}/copy`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ parentReference: { id: dest.id }, ...(x.copiaNome ? { name: x.copiaNome } : {}) }) }); if (!r.ok && r.status !== 202) throw new Error("copia non riuscita: " + x.name); }
   msg?.("Attendo che OneDrive finisca la copia…");
   for (let t = 0; t < 45; t++) { await sleep(2000); try { if ((await gList([...base, LINKDIR, dest.name])).length >= items.length) break; } catch (e) {} }
   msg?.("Creo il link…");
@@ -407,7 +407,9 @@ async function viewLinkPC(h) {
   app().innerHTML = `<header class="hdr"><div class="row"><h1>Link per il cliente</h1></div></header><div class="card" style="margin:12px"><div id="lp"><span class="spin"></span> Cerco i file su OneDrive…</div></div>`;
   const el = $("#lp"); if (!d) { el.textContent = "Richiesta non valida."; return; }
   const p = { anno: d.a, dir: d.dir, codice: d.cod, key: d.a + "/" + d.dir }, items = [], mancanti = [];
-  for (const n of d.n) { try { const it = await gItem([d.a, d.dir, ...(d.sub || []), n]); it ? items.push({ id: it.id, name: it.name }) : mancanti.push(n); } catch (e) { mancanti.push(n); } }
+  for (const n of d.n || []) { try { const it = await gItem([d.a, d.dir, ...(d.sub || []), n]); it ? items.push({ id: it.id, name: it.name }) : mancanti.push(n); } catch (e) { mancanti.push(n); } }
+  for (const f of d.f || []) { try { const it = await gItem([d.a, d.dir, ...f]); it ? items.push({ id: it.id, name: it.name, rel: f.slice(0, -1) }) : mancanti.push(f[f.length - 1]); } catch (e) { mancanti.push(f[f.length - 1]); } }
+  { const cnt = {}; items.forEach(x => { cnt[x.name] = (cnt[x.name] || 0) + 1; }); items.forEach(x => { if (cnt[x.name] > 1 && x.rel && x.rel.length) x.copiaNome = x.rel[x.rel.length - 1] + " - " + x.name; }); }
   const fine = x => { el.innerHTML = `<p><b>Link pronto</b> · pratica ${esc(d.cod || "")} · scade il ${esc(x.scade.split("-").reverse().join("/"))}</p><div class="f"><input readonly value="${esc(x.url)}" onclick="this.select()"></div><div class="row2"><button class="btn pri" id="lp-c">Copia link</button><button class="btn" id="lp-x">Chiudi</button></div>`; $("#lp-c").onclick = () => linkCopia(x.url); $("#lp-x").onclick = () => window.close(); linkCopia(x.url); };
   el.innerHTML = `<p>Pratica <b>${esc(d.cod || "")}</b> · ${items.length} element${items.length === 1 ? "o" : "i"} pront${items.length === 1 ? "o" : "i"}</p>${mancanti.length ? `<p class="hint">Non ancora su OneDrive (attendi la sincronizzazione e riprova): ${esc(mancanti.join(", "))}</p>` : ""}${items.length ? `<button class="btn pri" id="lp-go">Crea link…</button>` : ""}`;
   if (items.length) { $("#lp-go").onclick = () => linkDialogo(p, items, fine); linkDialogo(p, items, fine); }
