@@ -1119,6 +1119,7 @@ async function buildDocx(body, title) {
 }
 
 /* ---------- dati comuni ---------- */
+const dataLunga = (d = new Date()) => d.toLocaleDateString("it-IT", { day: "numeric", month: "long", year: "numeric" });
 const ph = (v, label) => (v && String(v).trim()) ? String(v).trim() : `«${label}»`;
 function immobileTxt(m) {
   const ind = m.indirizzo || ""; const com = m.comune && !norm(ind).includes(norm(m.comune)) ? m.comune : "";
