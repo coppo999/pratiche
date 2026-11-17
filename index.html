@@ -517,6 +517,20 @@ async function prevModifica(fn) {
   }
   throw new Error("l'elenco preventivi è stato modificato altrove: riprova");
 }
+/* PDF del preventivo dal telefono: crea il Word (stesso modello), lo converte in PDF con OneDrive e salva entrambi in _Preventivi/anno */
+async function prevPdf(x) {
+  const cart = x.cartella || ["_Preventivi", String(x.anno)];
+  const cg = (String(x.dest || "").trim().split(/\s+/)[0] || "").replace(/[^\w]/g, "");
+  const base = `Preventivo_${x.numero}${cg ? "_" + cg : ""}`;
+  const m = { indirizzo: x.indirizzo, comune: x.comune, tipo: x.tipo, _rifLab: "Rif. preventivo: ", _rif: `${x.numero}${x.tipo ? " – " + x.tipo : ""}` };
+  const blob = await buildDocx(docPreventivo(m, x));
+  const docx = await upload([...cart, base + ".docx"], new File([blob], base + ".docx", { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" }));
+  const r = await gf(`/me/drive/items/${docx.id}/content?format=pdf`);
+  if (!r.ok) throw new Error("conversione PDF non riuscita (" + r.status + ")");
+  const pdf = await upload([...cart, base + ".pdf"], new File([await r.blob()], base + ".pdf", { type: "application/pdf" }));
+  await prevModifica(L => { const y = L.find(z => z.id === x.id); if (y) { y.file = docx.name; y.pdf = pdf.name; y.daGenerare = false; } });
+  return pdf;
+}
 function prevNumero(L, anno) { const yy = String(anno).slice(2); let mx = 0; L.forEach(x => { const m = /^P(\d+)-(\d{2})$/.exec(x.numero || ""); if (m && m[2] === yy && +m[1] > mx) mx = +m[1]; }); return `P${mx + 1}-${yy}`; }
 
 /* ================= Interfaccia ================= */
@@ -1592,13 +1606,14 @@ function listaPrev() {
       return `<div class="pv" style="--sc:${col}" data-id="${esc(x.id)}"><div class="t"><b>${esc(x.numero)} · ${esc(x.dest || "—")}</b><b>${eur(x.totale || 0)}</b></div>
         <div class="s">${esc([x.tipo, x.comune, x.indirizzo].filter(Boolean).join(" · "))}${x.canale ? " · " + esc(x.canale) : ""}<br>${esc(lab)}${gg != null ? ` · ${gg === 0 ? "inviato oggi" : "da " + gg + " giorni"}` : x.pratica ? " · pratica " + esc(x.pratica) : ""}${x.daGenerare ? ' · <span style="color:#b45309">Word da creare sul PC</span>' : ""}</div>
         <div class="row2">${x.stato === "attesa" ? `<button class="btn pri" data-a="ok">${I.ok}Accettato</button><button class="btn" data-a="no">Rifiutato</button>` : x.stato === "accettato" && x.pratica ? `<button class="btn" data-a="vai">Apri pratica</button>` : `<button class="btn" data-a="riapri">Rimetti in attesa</button>`}
-          ${x.file ? `<button class="btn" data-a="file">${I.eye}</button>` : ""}${x.telefono ? `<a class="btn" href="tel:${esc(x.telefono)}">${I.phone}</a>` : ""}</div></div>`; }).join("") || `<div class="empty">${(D.prev || []).length ? "Nessun preventivo con questo filtro" : "Nessun preventivo"}</div>`);
+          <button class="btn" data-a="pdf">${x.pdf ? I.eye + "PDF" : "Crea PDF"}</button>${x.telefono ? `<a class="btn" href="tel:${esc(x.telefono)}">${I.phone}</a>` : ""}</div></div>`; }).join("") || `<div class="empty">${(D.prev || []).length ? "Nessun preventivo con questo filtro" : "Nessun preventivo"}</div>`);
   $$(".pv", el).forEach(r => { const x = D.prev.find(y => y.id === r.dataset.id); $$("[data-a]", r).forEach(b => b.onclick = () => azionePrev(x, b.dataset.a)); });
 }
 async function azionePrev(x, a) {
   try {
     if (a === "ok") { if (!(await conferma("Preventivo accettato", `Apro <b>Nuova pratica</b> già compilata con i dati del preventivo <b>${esc(x.numero)}</b>.`, "Apri la pratica"))) return; NUOVA_PREF = x; location.hash = "#/nuova"; return; }
     if (a === "vai") { const p = D.prat.find(q => String(q.codice).toLowerCase() === String(x.pratica).toLowerCase()); if (!p) return toast("Pratica non trovata", true); location.hash = "#/p/" + encodeURIComponent(p.key); return; }
+    if (a === "pdf") { let nome = x.pdf; if (!nome) { toast("Creo il PDF…"); nome = (await prevPdf(x)).name; listaPrev(); } const it = await gItem([...(x.cartella || ["_Preventivi", String(x.anno)]), nome]); if (!it) return toast("PDF non trovato", true); location.href = it.webUrl; return; }
     if (a === "file") { const it = await gItem([...(x.cartella || ["_Preventivi", String(x.anno)]), x.file]); if (!it) return toast("File del preventivo non trovato", true); location.href = it.webUrl; return; }
     if (a === "no" || a === "riapri") { const st = a === "no" ? "rifiutato" : "attesa"; await prevModifica(L => { const y = L.find(z => z.id === x.id); if (y) { y.stato = st; y.statoData = oggi(); } }); listaPrev(); toast(`${x.numero}: ${PREV_ST[st][0].toLowerCase()}`); }
   } catch (e) { toast("Errore: " + e.message, true); }
@@ -1613,7 +1628,7 @@ function editorPrev() {
     <div class="f"><label>Voci (descrizione e onorario €)</label></div><div id="pe-v"></div><button class="btn full" id="pe-add" style="margin-bottom:10px">${I.plus}Aggiungi voce</button>
     <div class="g2"><div class="f"><label>Regime</label><select id="pe-reg"><option value="forfettario">Forfettario</option><option value="ordinario">Ordinario (IVA 22%)</option></select></div><div class="f"><label>Cassa %</label><input id="pe-cassa" value="5" inputmode="decimal"></div></div>
     <div class="tot"><span>Totale</span><span id="pe-tot">€ 0</span></div>
-    <p class="hint">Il preventivo resta tra quelli <b>in attesa</b>. Il documento Word si crea da solo la prossima volta che apri Pratiche Studio sul PC.</p>
+    <p class="hint">Il preventivo resta tra quelli <b>in attesa</b>. Il PDF (e il Word) vengono creati subito in <b>_Preventivi</b>.</p>
     <div class="row2"><button class="btn" data-n>Annulla</button><button class="btn pri" data-y>${I.ok}Salva preventivo</button></div>`, (bg, close) => {
     const tot = () => { const c = calcPrev({ voci: st.voci, cassa: $("#pe-cassa", bg).value, regime: $("#pe-reg", bg).value }); $("#pe-tot", bg).textContent = eur(c.tot) + (c.imp ? ` (onorario ${eur(c.imp)})` : ""); };
     const draw = () => {
@@ -1633,7 +1648,7 @@ function editorPrev() {
         tipoCode: tc, tipo: (TIPI.find(t => t[1] === tc) || [""])[0], indirizzo: $("#pe-ind", bg).value.trim(), comune: $("#pe-com", bg).value.trim(), regime: $("#pe-reg", bg).value, cassa: $("#pe-cassa", bg).value,
         validita: "30", pagamento: "50% all'incarico, saldo alla consegna / al deposito", extra: "", voci: st.voci.filter(v => v.t || v.imp).map(v => ({ t: v.t || "", d: v.d || "", imp: v.imp ?? "" })), stato: "attesa", cartella: ["_Preventivi", String(anno)], file: "", daGenerare: true, daTelefono: true };
       const c = calcPrev(x); x.imponibile = Math.round(c.imp * 100) / 100; x.totale = Math.round(c.tot * 100) / 100;
-      try { await prevModifica(L => { x.numero = prevNumero(L, anno); L.push(x); }); close(); PV_F = "attesa"; viewPreventivi(); toast(`Preventivo ${x.numero} salvato`); }
+      try { await prevModifica(L => { x.numero = prevNumero(L, anno); L.push(x); }); close(); PV_F = "attesa"; viewPreventivi(); toast(`Preventivo ${x.numero} salvato · creo il PDF…`); prevPdf(x).then(() => { listaPrev(); toast(`✓ PDF ${x.numero} creato`); }).catch(e => toast("PDF non creato: " + e.message, true)); }
       catch (e) { toast("Non salvato: " + e.message, true); b.disabled = false; b.innerHTML = `${I.ok}Salva preventivo`; }
     };
     draw();
