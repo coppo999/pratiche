@@ -261,6 +261,15 @@ const PRESET_VOCI = {
   idoneita: [{ t: "Certificato di idoneità alloggiativa", d: "Sopralluogo presso l'alloggio\nVerifica dei requisiti igienico-sanitari e redazione della certificazione", imp: "" }],
 };
 const presetFor = cat => JSON.parse(JSON.stringify(PRESET_VOCI[cat] || PRESET_VOCI[cat === "impianti" ? "conformita" : "x"] || [{ t: "Prestazione professionale", d: "", imp: "" }]));
+/* Listino 2026: totale al cliente [privato, agenzia/ricorrente, spese escluse dall'onorario]; l'onorario si ricava togliendo bollo e cassa 5% */
+const LISTINO = { Ape: [200, 150, 10], AccessoApe: [400, 350, 10], AccessoAtti: [200, 180], Conformita: [450, 400], IdoneitaAlloggiativa: [180, 150], Docfa: [350, 280], Cila: [1250, 900], CilaSanatoria: [1600, 1200], Scia: [2000, 1600], SciaSanatoria: [2000, 1600], Agibilita: [800, 600], CertImpianti: [300, 250] };
+const CAT_TC = { ape: "Ape", cila: "Cila", scia: "Scia", sanatoria: "SciaSanatoria", catasto: "Docfa", accesso: "AccessoAtti", agibilita: "Agibilita", conformita: "Conformita", idoneita: "IdoneitaAlloggiativa", impianti: "CertImpianti" };
+function listino(voci, tc, ag) {
+  const L = LISTINO[tc]; if (!L || !voci.length) return voci;
+  const on = Math.max(0, ((ag ? L[1] : L[0]) - (L[2] || 0) - 2) / 1.05), w = voci.map(v => num(v.imp)), sw = w.every(x => x > 0) ? w.reduce((a, b) => a + b, 0) : 0;
+  let fatto = 0; voci.forEach((v, i) => { v.imp = i === voci.length - 1 ? Math.round((on - fatto) * 100) / 100 : Math.round((sw ? on * w[i] / sw : on / voci.length) * 100) / 100; fatto += v.imp; });
+  return voci;
+}
 function calcPrev(o) {
   const imp = o.voci.reduce((a, v) => a + num(v.imp), 0), cassa = imp * (num(o.cassa) / 100), base = imp + cassa;
   const iva = o.regime === "ordinario" ? base * 0.22 : 0, bollo = o.regime === "forfettario" && base > 77.47 ? 2 : 0;
@@ -1344,7 +1353,7 @@ function genCrea(p, m, titolo, fname, form, costruisci, docFn) {
   });
 }
 function genPrev(p, m) {
-  const voci = presetFor(p.cat);
+  const voci = listino(presetFor(p.cat), CAT_TC[p.cat], !!m.canale);
   const form = campo("pv-dest", "Destinatario (Spett.le)", m.committente || m.canale || "")
     + campo("pv-ind", "Indirizzo destinatario", m.residenza || (m.comune ? m.comune + (m.provincia ? " (" + m.provincia + ")" : "") : ""))
     + `<div class="f"><label>Regime</label><select id="pv-reg"><option value="forfettario" ${S.regime === "forfettario" ? "selected" : ""}>Forfettario (no IVA)</option><option value="ordinario" ${S.regime === "ordinario" ? "selected" : ""}>Ordinario (IVA 22%)</option></select></div>`
@@ -1627,10 +1636,11 @@ async function azionePrev(x, a) {
   } catch (e) { toast("Errore: " + e.message, true); }
 }
 function editorPrev() {
-  const tc0 = "Ape"; const st = { voci: presetFor(catOf(tc0)) };
+  const tc0 = "Ape"; const st = { voci: listino(presetFor(catOf(tc0)), tc0, false) };
   sheet("Nuovo preventivo", `<div class="f"><label>Destinatario (cliente)</label><input id="pe-dest" autocapitalize="words"></div>
     <div class="g2"><div class="f"><label>Telefono</label><input id="pe-tel" type="tel"></div><div class="f"><label>E-mail</label><input id="pe-mail" type="email" autocapitalize="off"></div></div>
     <div class="f"><label>Canale / agenzia</label><input id="pe-can"></div>
+    <div class="f"><label>Listino</label><select id="pe-lis"><option value="">Privato</option><option value="1">Agenzia / cliente ricorrente</option></select></div>
     <div class="f"><label>Tipo pratica</label><select id="pe-tipo">${TIPI.map(([l, c]) => `<option value="${c}">${esc(l)}</option>`).join("")}</select></div>
     <div class="f"><label>Indirizzo immobile</label><input id="pe-ind"></div><div class="f"><label>Comune</label><input id="pe-com"></div>
     <div class="f"><label>Voci (descrizione e onorario €)</label></div><div id="pe-v"></div><button class="btn full" id="pe-add" style="margin-bottom:10px">${I.plus}Aggiungi voce</button>
@@ -1644,7 +1654,9 @@ function editorPrev() {
       $$(".voce", bg).forEach(r => { const i = +r.dataset.i; $$("[data-f]", r).forEach(inp => inp.oninput = () => { st.voci[i][inp.dataset.f] = inp.value; tot(); }); $("[data-rm]", r).onclick = () => { st.voci.splice(i, 1); draw(); }; });
       tot();
     };
-    $("#pe-tipo", bg).onchange = () => { st.voci = presetFor(catOf($("#pe-tipo", bg).value)); draw(); };
+    const rifai = () => { const tc = $("#pe-tipo", bg).value; st.voci = listino(presetFor(catOf(tc)), tc, !!$("#pe-lis", bg).value); draw(); };
+    $("#pe-tipo", bg).onchange = rifai; $("#pe-lis", bg).onchange = rifai;
+    $("#pe-can", bg).onchange = () => { if ($("#pe-can", bg).value.trim() && !$("#pe-lis", bg).value) { $("#pe-lis", bg).value = "1"; rifai(); } };
     $("#pe-add", bg).onclick = () => { st.voci.push({ t: "", d: "", imp: "" }); draw(); };
     $("#pe-reg", bg).onchange = tot; $("#pe-cassa", bg).oninput = tot;
     $("[data-n]", bg).onclick = close;
