@@ -814,7 +814,8 @@ function menuFile(p, x, body) {
 /* dati */
 const CAMPI = [["committente", "Committente (cognome e nome)"], ["telefono", "Telefono", "tel"], ["email", "E-mail", "email"], ["cf", "Codice fiscale / P.IVA"], ["canale", "Canale / agenzia"], ["compenso", "Compenso concordato €", "decimal"],
   ["indirizzo", "Indirizzo"], ["comune", "Comune"], ["provincia", "Prov."], ["foglio", "Foglio"], ["mappale", "Mappale"], ["sub", "Sub."], ["categoria", "Categoria"], ["piano", "Piano / interno"],
-  ["residenza", "Residenza"], ["nascitaLuogo", "Luogo di nascita"], ["nascitaData", "Data di nascita", "date"], ["descrizione", "Descrizione lavori", "area"], ["note", "Note", "area"]];
+  ["residenza", "Residenza"], ["nascitaLuogo", "Luogo di nascita"], ["nascitaData", "Data di nascita", "date"], ["dataApe", "Data emissione APE", "date"], ["inizioLavori", "Inizio lavori", "date"], ["fineLavori", "Fine lavori comunicata", "date"], ["dataAgibilita", "Agibilità depositata il", "date"],
+  ["descrizione", "Descrizione lavori", "area"], ["note", "Note", "area"]];
 let CONT_PRAT = null;
 async function contLoad() { if (!CONT_PRAT) { try { CONT_PRAT = (await readJSON(["_sync", "fatture_per_pratica.json"]))?.data || null; } catch (e) {} } return CONT_PRAT; }
 /* ================= Fattura elettronica per Aruba (file XML da caricare con "Carica fattura") ================= */
@@ -1316,9 +1317,9 @@ const casella = (id, label, on) => `<label style="display:flex;gap:8px;align-ite
 async function tabGenera(p, body) {
   const m = { ...(await leggiMeta(p)) }; if (!m.codice) m.codice = p.codice; if (!m.anno) m.anno = p.anno;
   body.innerHTML = `<p class="muted" style="font-size:13px;margin:4px 0 12px">Il documento viene creato qui e salvato nella cartella della pratica.</p>`
-    + [["prev", "Preventivo"], ["del", "Delega al tecnico"], ["inc", "Lettera d'incarico"], ["ric", "Ricevuta in contanti"]]
+    + [["prev", "Preventivo"], ["del", "Delega al tecnico"], ["inc", "Lettera d'incarico"], ["ric", "Ricevuta in contanti"], ["post", "Post social (Instagram)"]]
       .map(([k, l]) => `<button class="btn full" data-gen="${k}" style="margin-bottom:8px">${l}</button>`).join("");
-  const F = { prev: genPrev, del: genDel, inc: genInc, ric: genRic };
+  const F = { prev: genPrev, del: genDel, inc: genInc, ric: genRic, post: genPost };
   $$("[data-gen]", body).forEach(b => b.onclick = () => F[b.dataset.gen](p, m));
 }
 function genCrea(p, m, titolo, fname, form, costruisci, docFn) {
@@ -1391,7 +1392,7 @@ async function tabCont(p, body) {
 }
 function tabDati(p, body) {
   const m = PCUR.meta || metaOf(p);
-  const righe = CAMPI.filter(([k]) => m[k]).map(([k, l]) => `<dt>${esc(l.replace(/ \(.*\)/, ""))}</dt><dd>${k === "compenso" ? eur(num(m[k])) : k === "nascitaData" ? esc(dataIt(m[k])) : esc(m[k]).replace(/\n/g, "<br>")}</dd>`).join("");
+  const righe = CAMPI.filter(([k]) => m[k]).map(([k, l, t]) => `<dt>${esc(l.replace(/ \(.*\)/, ""))}</dt><dd>${k === "compenso" ? eur(num(m[k])) : t === "date" ? esc(dataIt(m[k])) : esc(m[k]).replace(/\n/g, "<br>")}</dd>`).join("");
   body.innerHTML = `<div class="card">${righe ? `<dl class="kv">${m.tipo ? `<dt>Tipo</dt><dd>${esc(m.tipo)}</dd>` : ""}${righe}${m.dataApertura ? `<dt>Aperta il</dt><dd>${esc(dataIt(m.dataApertura))}</dd>` : ""}</dl>` : `<div class="empty" style="padding:16px">Nessun dato nella scheda</div>`}</div>
     <button class="btn pri full" id="dt-ed">${I.edit}Modifica dati</button>`;
   $("#dt-ed", body).onclick = () => {
@@ -1788,9 +1789,14 @@ async function viewOggi() {
   const rec = ls.get("ps_recenti", []).map(k => D.byKey[k]).filter(Boolean);
   const tl = [...late, ...oggiT, ...dom].slice(0, 10);
   $("#o-g").innerHTML = `<div class="card og-sec"><h3>Task <small>${late.length ? late.length + " in ritardo" : "oggi e domani"}</small></h3><div id="o-tk">${tl.map(taskRiga).join("") || '<div class="hint" style="padding:8px 0">Niente in scadenza oggi o domani</div>'}</div><button class="btn" id="o-all" style="margin-top:8px;width:100%">Tutti i task</button></div>
+    <div class="card og-sec" id="o-sc"></div>
     <div class="card og-sec"><h3>Pratiche ferme <small>14+ giorni senza attività</small></h3>${fermi.map(x => ogPratica(x.p, x.g + " gg")).join("") || '<div class="hint">Tutto in movimento</div>'}</div>
     <div class="card og-sec"><h3>Incassi da fare <small>${eur(totInc)}</small></h3>${inc.slice(0, 8).map(x => ogPratica(x.p, eur(x.r))).join("") || '<div class="hint">Nessun incasso in sospeso</div>'}</div>
     <div class="card og-sec"><h3>Aperte di recente</h3>${rec.map(p => ogPratica(p)).join("") || '<div class="hint">Le pratiche che apri compaiono qui</div>'}</div>`;
+  { const L = scadenze(), el = $("#o-sc"), nr = D.crm ? crmDaRichiamare() : 0;
+    el.innerHTML = `<h3>Scadenze <small>${L.length ? L.length + " da gestire" : "APE, fine lavori, agibilità"}</small></h3>${L.slice(0, 5).map(scadRiga).join("") || '<div class="hint">Nessuna scadenza</div>'}<div class="row2" style="margin-top:8px">${L.length > 5 ? '<button class="btn" id="o-scall">Tutte le scadenze</button>' : ""}<button class="btn" id="o-crm">Campagne${nr ? ` (${nr} da richiamare)` : ""}</button></div>`;
+    scadWire(el, L, viewOggi); $("#o-scall") && ($("#o-scall").onclick = scadApri); $("#o-crm").onclick = () => { location.hash = "#/crm"; };
+    if (!D.crm) crmCarica().then(() => { const n = crmDaRichiamare(); if (n && $("#o-crm")) $("#o-crm").textContent = `Campagne (${n} da richiamare)`; }).catch(() => {}); }
   ogWire($("#o-g")); $("#o-all").onclick = () => { location.hash = "#/task"; };
   $$("#o-tk .tk").forEach(r => { const x = D.task.find(z => z.id === r.dataset.id); if (!x) return;
     $("[data-chk]", r).onclick = async e => { e.stopPropagation(); r.classList.toggle("done");
@@ -1986,6 +1992,7 @@ const gcal = {
 };
 function gcalRedirect() {   // ritorno dall'accesso Google: #access_token=…&state=gcal
   const q = new URLSearchParams(location.hash.slice(1));
+  if (q.get("state") === "gmail") { if (q.get("access_token")) { ls.set("ps_gmtok", { at: q.get("access_token"), exp: Date.now() + ((+q.get("expires_in") || 3600) - 120) * 1000 }); ls.set("ps_gm_on", true); } else if (q.get("error")) { ls.set("ps_gm_on", false); setTimeout(() => toast("Gmail: " + q.get("error"), true), 500); } history.replaceState(null, "", REDIRECT + "#/crm"); return; }
   if (q.get("state") !== "gcal") return;
   if (q.get("access_token")) { ls.set("ps_gtok", { at: q.get("access_token"), exp: Date.now() + ((+q.get("expires_in") || 3600) - 120) * 1000 }); ls.set("ps_gcal_on", true); }
   else if (q.get("error")) { ls.set("ps_gcal_on", false); if (!/interaction_required|login_required|consent_required/.test(q.get("error"))) setTimeout(() => toast("Google: " + q.get("error"), true), 500); }
@@ -2086,8 +2093,8 @@ function ricontattiApri() {
   });
 }
 async function viewClienti() {
-  app().innerHTML = `<header class="hdr"><div class="row"><h1>Clienti</h1><button class="ib" id="c-new">${I.plus}</button></div><div class="search"><input type="search" id="c-q" placeholder="Cerca nome, telefono, email…" value="${esc(CL_Q)}"></div></header><main><div class="list" id="c-l"><div class="empty"><span class="spin"></span> Carico…</div></div></main>${tabbar("c")}`;
-  wireTabbar(); $("#c-new").onclick = () => editorCliente(null);
+  app().innerHTML = `<header class="hdr"><div class="row"><h1 style="flex:1">Clienti</h1><button class="ib" id="c-crm" title="Campagne">${I.mail}</button><button class="ib" id="c-new">${I.plus}</button></div><div class="search"><input type="search" id="c-q" placeholder="Cerca nome, telefono, email…" value="${esc(CL_Q)}"></div></header><main><div class="list" id="c-l"><div class="empty"><span class="spin"></span> Carico…</div></div></main>${tabbar("c")}`;
+  wireTabbar(); $("#c-new").onclick = () => editorCliente(null); $("#c-crm").onclick = () => { location.hash = "#/crm"; };
   { const n = ricontatti().length; if (n) { const c = document.createElement("button"); c.className = "btn"; c.style.cssText = "width:100%;margin:0 0 10px"; c.textContent = `Da ricontattare (${n})`; c.onclick = ricontattiApri; $("#c-l").before(c); } }
   await Promise.all([D.cli ? 0 : clientiCarica().catch(() => (D.cli = [])), D.prev ? 0 : prevCarica().catch(() => {})]);
   const draw = () => { const toks = norm(CL_Q).split(/\s+/).filter(Boolean), el = $("#c-l"); if (!el) return;
@@ -2124,6 +2131,207 @@ function editorCliente(c) {
 }
 
 /* ================= avvio e navigazione ================= */
+/* ===== Scadenzario: APE a 10 anni, fine lavori CILA/SCIA, agibilità ===== */
+const SCAD_FL_MESI = 6, SCAD_LAB = { ape: "APE in scadenza", fl: "Fine lavori da comunicare", agi: "Agibilità da depositare" };
+const addMesi = (d, n) => { const x = new Date(d); x.setMonth(x.getMonth() + n); return x; };
+const waNum = t => { t = String(t || "").replace(/[^\d+]/g, ""); return t ? (t.startsWith("+") ? t.slice(1) : t.startsWith("00") ? t.slice(2) : "39" + t) : ""; };
+function scadenze() {
+  const out = [], now = Date.now(), y = new Date().getFullYear();
+  for (const p of D.prat) {
+    const m = metaOf(p), st = statoOf(p); if (st === "non_eseguita") continue;
+    const ok = m.scadOk || {}, tipo = String(m.tipo || p.dir), c = catOf(tipo), ap = m.dataApertura || `${p.anno}-06-30`;
+    if ((c === "ape" || /\bape\b/i.test(tipo)) && !ok.ape) { const em = m.dataApe || (ST_CHIUSI.includes(st) ? String(m.statoAgg || ap).slice(0, 10) : "");
+      if (em) { const sc = addMesi(em, 120), g = Math.round((sc - now) / 864e5); if (g <= 90 && g > -365) out.push({ p, m, k: "ape", g, d: sc }); } }
+    if ((c === "cila" || c === "scia") && !m.fineLavori && !ok.fl && p.anno >= y - 2) { const sc = addMesi(m.inizioLavori || ap, SCAD_FL_MESI), g = Math.round((sc - now) / 864e5); if (g <= 0) out.push({ p, m, k: "fl", g, d: sc }); }
+    if (c === "scia" && m.fineLavori && !m.dataAgibilita && !ok.agi) { const sc = new Date(Date.parse(m.fineLavori) + 15 * 864e5), g = Math.round((sc - now) / 864e5); if (g > -365) out.push({ p, m, k: "agi", g, d: sc }); }
+  }
+  return out.sort((a, b) => a.g - b.g);
+}
+function scadTesto(x) {
+  const m = x.m, c = titleCase(String(m.committente || "").split(/\s+/).slice(1).join(" ") || m.committente || ""), dove = m.indirizzo ? ` dell'immobile in ${titleCase(m.indirizzo)}${m.comune ? ", " + titleCase(m.comune) : ""}` : "";
+  if (x.k === "ape") return `Buongiorno ${c}, sono Davide Coppola. L'APE${dove} ${x.g < 0 ? "è scaduto" : "scade"} il ${x.d.toLocaleDateString("it-IT")} (dura 10 anni). Per vendere o affittare serve valido: se vuole lo rinnovo io in pochi giorni. Buona giornata!`;
+  if (x.k === "fl") return `Buongiorno ${c}, sono Davide Coppola. Per la pratica${dove} va comunicata in Comune la fine dei lavori. Mi fa sapere se sono terminati? Così preparo io la comunicazione. Grazie!`;
+  return `Buongiorno ${c}, sono Davide Coppola. Dopo la fine lavori${dove} va depositata la Segnalazione Certificata di Agibilità entro 15 giorni. Mi servono le dichiarazioni di conformità degli impianti: me le può inviare? Grazie!`;
+}
+function scadRiga(x, i) {
+  const quando = x.g < 0 ? `scaduta da ${-x.g} gg` : x.g === 0 ? "oggi" : `tra ${x.g} gg`;
+  return `<div style="padding:9px 0;border-bottom:1px solid var(--line)"><div style="display:flex;justify-content:space-between;gap:8px"><b>${esc(SCAD_LAB[x.k])}</b><small style="color:${x.g < 0 ? "#dc2626" : "var(--muted)"}">${quando}</small></div>
+    <small class="muted">${esc([x.p.codice, x.m.committente && titleCase(x.m.committente), [x.m.indirizzo, x.m.comune].filter(Boolean).map(titleCase).join(", ")].filter(Boolean).join(" · "))}</small>
+    <div class="row2" style="margin-top:7px"><button class="btn" data-sw="${i}">${I.chat}WhatsApp</button><button class="btn" data-se="${i}">${I.mail}E-mail</button><button class="btn" data-sa="${i}">${I.eye}Apri</button><button class="btn" data-sf="${i}">${I.ok}Fatto</button></div></div>`;
+}
+function scadWire(el, L, rifai) {
+  $$("[data-sw]", el).forEach(b => b.onclick = () => { const x = L[b.dataset.sw]; window.open(`https://wa.me/${waNum(x.m.telefono)}?text=${encodeURIComponent(scadTesto(x))}`, "_blank"); });
+  $$("[data-se]", el).forEach(b => b.onclick = () => { const x = L[b.dataset.se]; location.href = `mailto:${x.m.email || ""}?subject=${encodeURIComponent("Studio Tecnico Coppola – " + SCAD_LAB[x.k])}&body=${encodeURIComponent(scadTesto(x))}`; });
+  $$("[data-sa]", el).forEach(b => b.onclick = () => { location.hash = "#/p/" + encodeURIComponent(L[b.dataset.sa].p.key); });
+  $$("[data-sf]", el).forEach(b => b.onclick = async () => { const x = L[b.dataset.sf]; b.disabled = true;
+    try { await modificaMeta(x.p, mm => { mm.scadOk = { ...(mm.scadOk || {}), [x.k]: new Date().toISOString() }; diarioPush(mm, SCAD_LAB[x.k] + ": segnato fatto (dal telefono)", "dati"); }); toast("Fatto"); rifai(); } catch (e) { b.disabled = false; toast(e.message, true); } });
+}
+function scadApri() { const L = scadenze(); sheet("Scadenze", L.length ? L.map(scadRiga).join("") : `<div class="empty">Nessuna scadenza</div>`, (bg, close) => scadWire(bg, L, () => { close(); viewOggi(); })); }
+
+/* ===== CRM campagne: agenzie, notai, amministratori, CAF, property manager ===== */
+const CRM_F = ["_crm", "_contatti.json"];
+const CRM_CAT = { agenzie: "Agenzie", notai: "Notai", amministratori: "Amministratori", caf: "CAF", pm: "Property manager", studi: "Studi tecnici", altro: "Altro" };
+const CRM_ST = { inviato: ["Inviato", "#64748b"], risposto: ["Risposto", "#2563eb"], richiamare: ["Da richiamare", "#ea580c"], cliente: ["Cliente", "#16a34a"], no: ["Non interessato", "#94a3b8"] };
+let CRM_FIL = { cat: "", st: "", q: "" };
+async function crmCarica() { const r = await readJSON(CRM_F); D.crm = r?.data?.contatti || []; return D.crm; }
+async function crmModifica(fn) {
+  for (let t = 0; t < 4; t++) {
+    const r = await readJSON(CRM_F); const L = r?.data?.contatti || []; fn(L);
+    try { await writeJSON(CRM_F, { app: "Pratiche Studio", aggiornato: new Date().toISOString(), contatti: L }, r?.eTag, r ? null : "fail"); D.crm = L; return L; }
+    catch (e) { if (e.status === 412 || e.status === 409) { await sleep(400); continue; } throw e; }
+  }
+  throw new Error("l'elenco contatti è stato modificato altrove: riprova");
+}
+const crmDaRichiamare = () => (D.crm || []).filter(c => c.stato === "richiamare" && (!c.richiama || c.richiama <= oggi())).length;
+const GMSCOPE = "https://www.googleapis.com/auth/gmail.modify";
+const gmail = {
+  tok() { const t = ls.get("ps_gmtok", null); return t && Date.now() < t.exp ? t.at : ""; },
+  login(silenzioso) { const q = new URLSearchParams({ client_id: window.PS_GOOGLE_ID || "", redirect_uri: REDIRECT, response_type: "token", scope: GMSCOPE, state: "gmail", login_hint: "piedavidecoppola@gmail.com" }); if (silenzioso) q.set("prompt", "none"); location.href = "https://accounts.google.com/o/oauth2/v2/auth?" + q; },
+  async f(path, opt = {}) {
+    const at = this.tok(); if (!at) { this.login(ls.get("ps_gm_on", false)); await new Promise(() => {}); }
+    const r = await fetch("https://gmail.googleapis.com/gmail/v1/users/me" + path, { ...opt, headers: { Authorization: "Bearer " + at, "Content-Type": "application/json" }, signal: tmo(30000) });
+    if (r.status === 401) { ls.del("ps_gmtok"); this.login(true); await new Promise(() => {}); }
+    if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error("Gmail: " + (j.error?.message || "errore " + r.status)); }
+    return r.status === 204 ? null : r.json();
+  },
+  async cerca(q, max = 100) { const L = (await this.f(`/messages?maxResults=${max}&q=${encodeURIComponent(q)}`)).messages || [];
+    return Promise.all(L.map(x => this.f(`/messages/${x.id}?format=metadata&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Subject&metadataHeaders=Date`))); },
+  async etichetta(nome) { const L = (await this.f("/labels")).labels || []; const e = L.find(l => l.name === nome); return e ? e.id : (await this.f("/labels", { method: "POST", body: JSON.stringify({ name: nome, labelListVisibility: "labelShow", messageListVisibility: "show" }) })).id; },
+};
+const hdr = (msg, n) => (msg.payload?.headers || []).find(h => h.name.toLowerCase() === n.toLowerCase())?.value || "";
+const mailDi = s => (String(s).match(/[\w.+-]+@[\w-]+\.[\w.-]+/g) || []).map(x => x.toLowerCase());
+async function crmSyncGmail(silenzioso) {
+  const L = (D.crm || []).filter(c => c.email && !["cliente", "no"].includes(c.stato)); if (!L.length) return 0;
+  const per = {}; L.forEach(c => per[c.email.toLowerCase()] = c);
+  const mail = Object.keys(per), trovati = {};
+  for (let i = 0; i < mail.length; i += 25) {
+    const msgs = await gmail.cerca(`from:(${mail.slice(i, i + 25).join(" OR ")}) newer_than:180d -in:sent`, 100);
+    for (const m of msgs) { const da = mailDi(hdr(m, "From"))[0], c = per[da]; if (!c) continue; const t = new Date(+m.internalDate).toISOString();
+      if (!c.risposto || t > c.risposto) (trovati[da] = trovati[da] || []).push({ t, thread: m.threadId, ogg: hdr(m, "Subject") }); }
+  }
+  const k = Object.keys(trovati); if (!k.length) { if (!silenzioso) toast("Nessuna nuova risposta"); return 0; }
+  const lr = await gmail.etichetta("CRM/Risposto"), lc = {};
+  for (const e of k) { const c = per[e], cn = "CRM/" + (CRM_CAT[c.cat] || "Altro"); lc[cn] = lc[cn] || await gmail.etichetta(cn);
+    for (const x of trovati[e]) await gmail.f(`/threads/${x.thread}/modify`, { method: "POST", body: JSON.stringify({ addLabelIds: [lr, lc[cn]] }) }).catch(() => {}); }
+  await crmModifica(C => { for (const c of C) { const x = trovati[String(c.email || "").toLowerCase()]; if (!x) continue; const u = x.sort((a, b) => b.t.localeCompare(a.t))[0];
+    c.risposto = u.t; if (c.stato === "inviato") c.stato = "risposto"; c.storia = [...(c.storia || []), { t: u.t, ev: "Risposta: " + u.ogg }].slice(-50); c.agg = new Date().toISOString(); } });
+  ls.set("ps_crm_sync", Date.now()); toast(`${k.length} nuove risposte`); return k.length;
+}
+async function viewCrm() {
+  app().innerHTML = `<header class="hdr"><div class="row"><button class="ib" id="k-back">${I.back}</button><h1 style="flex:1">Campagne</h1><button class="ib" id="k-sync" title="Controlla risposte Gmail">${I.ref}</button><button class="ib" id="k-imp" title="Importa da Gmail">${I.mail}</button><button class="ib" id="k-new">${I.plus}</button></div>
+    <div class="search"><input type="search" id="k-q" placeholder="Cerca nome, email, comune…" value="${esc(CRM_FIL.q)}"></div>
+    <div class="row2" style="margin-top:8px"><select id="k-cat" class="btn"><option value="">Tutte le categorie</option>${Object.entries(CRM_CAT).map(([k, l]) => `<option value="${k}" ${CRM_FIL.cat === k ? "selected" : ""}>${l}</option>`).join("")}</select><select id="k-st" class="btn"><option value="">Tutti gli stati</option>${Object.entries(CRM_ST).map(([k, [l]]) => `<option value="${k}" ${CRM_FIL.st === k ? "selected" : ""}>${l}</option>`).join("")}</select></div></header>
+    <main><div class="og-kp" id="k-kp"></div><div class="list" id="k-l"><div class="empty"><span class="spin"></span> Carico…</div></div></main>${tabbar("c")}`;
+  wireTabbar(); $("#k-back").onclick = () => history.back(); $("#k-new").onclick = () => crmEditor(null); $("#k-imp").onclick = crmImporta;
+  $("#k-sync").onclick = async () => { const b = $("#k-sync"); b.disabled = true; try { await crmSyncGmail(); } catch (e) { toast(e.message, true); } viewCrm(); };
+  try { await crmCarica(); } catch (e) { $("#k-l").innerHTML = `<div class="warn">${esc(e.message)}</div>`; return; }
+  const draw = () => { const el = $("#k-l"); if (!el) return; const toks = norm(CRM_FIL.q).split(/\s+/).filter(Boolean);
+    const base = D.crm.filter(c => (!CRM_FIL.cat || c.cat === CRM_FIL.cat) && toks.every(t => norm([c.nome, c.email, c.comune, c.tel, c.nota].join(" ")).includes(t)));
+    $("#k-kp").innerHTML = Object.entries(CRM_ST).slice(0, 4).map(([k, [l]]) => `<div><b>${base.filter(c => c.stato === k).length}</b>${l}</div>`).join("");
+    const L = base.filter(c => !CRM_FIL.st || c.stato === CRM_FIL.st).sort((a, b) => (a.stato === "richiamare" ? 0 : 1) - (b.stato === "richiamare" ? 0 : 1) || String(b.agg || "").localeCompare(a.agg || ""));
+    el.innerHTML = L.slice(0, 500).map(c => `<div class="pr" data-id="${esc(c.id)}"><span class="av">${esc(iniziali(c.nome))}</span><div class="tx"><b>${esc(c.nome)}</b><small>${esc([CRM_CAT[c.cat], c.comune].filter(Boolean).join(" · "))}</small>${c.stato === "richiamare" && c.richiama ? `<small>Richiamare il ${esc(dataIt(c.richiama))}</small>` : ""}</div><span class="st" style="--sc:${CRM_ST[c.stato]?.[1] || "#64748b"}">${esc(CRM_ST[c.stato]?.[0] || c.stato)}</span></div>`).join("") || `<div class="empty">Nessun contatto. Usa ${I.mail} per importarli dalle email inviate.</div>`;
+    $$(".pr", el).forEach(r => r.onclick = () => crmEditor(D.crm.find(c => c.id === r.dataset.id))); };
+  let t; $("#k-q").oninput = e => { clearTimeout(t); t = setTimeout(() => { CRM_FIL.q = e.target.value; draw(); }, 120); };
+  $("#k-cat").onchange = e => { CRM_FIL.cat = e.target.value; draw(); }; $("#k-st").onchange = e => { CRM_FIL.st = e.target.value; draw(); };
+  draw();
+  if (gmail.tok() && Date.now() - ls.get("ps_crm_sync", 0) > 6 * 36e5) crmSyncGmail(true).then(n => n && draw()).catch(() => {});
+}
+function crmEditor(c) {
+  const v = c || { stato: "inviato", cat: CRM_FIL.cat || "agenzie" }, wa = waNum(v.tel);
+  sheet(c ? v.nome : "Nuovo contatto", `${c ? `<div class="acts" style="margin:0 0 12px">${[[v.tel, "tel:" + v.tel, I.phone, "Chiama"], [wa, "https://wa.me/" + wa, I.chat, "WhatsApp"], [v.email, "mailto:" + (v.email || ""), I.mail, "E-mail"]].map(([ok, h, ic, l]) => `<a class="act cl ${ok ? "" : "off"}" href="${esc(h)}" target="_blank" rel="noopener">${ic}${l}</a>`).join("")}</div>` : ""}
+    <div class="f"><label>Nome / studio</label><input data-k="nome" value="${esc(v.nome || "")}"></div>
+    <div class="row2"><div class="f"><label>Categoria</label><select data-k="cat">${Object.entries(CRM_CAT).map(([k, l]) => `<option value="${k}" ${v.cat === k ? "selected" : ""}>${l}</option>`).join("")}</select></div><div class="f"><label>Stato</label><select data-k="stato">${Object.entries(CRM_ST).map(([k, [l]]) => `<option value="${k}" ${v.stato === k ? "selected" : ""}>${l}</option>`).join("")}</select></div></div>
+    <div class="f"><label>E-mail</label><input data-k="email" type="email" autocapitalize="off" value="${esc(v.email || "")}"></div>
+    <div class="row2"><div class="f"><label>Telefono</label><input data-k="tel" type="tel" value="${esc(v.tel || "")}"></div><div class="f"><label>Comune</label><input data-k="comune" value="${esc(v.comune || "")}"></div></div>
+    <div class="f"><label>Richiamare il</label><input data-k="richiama" type="date" value="${esc(v.richiama || "")}"></div>
+    <div class="f"><label>Nota</label><textarea data-k="nota" rows="3">${esc(v.nota || "")}</textarea></div>
+    ${(v.storia || []).length ? `<div class="hint" style="margin-bottom:10px">${v.storia.slice(-6).reverse().map(s => `${esc(dataIt(s.t.slice(0, 10)))} – ${esc(s.ev)}`).join("<br>")}</div>` : ""}
+    <div class="row2">${c ? `<button class="btn" data-del>${I.trash}Elimina</button>` : `<button class="btn" data-no>Annulla</button>`}<button class="btn pri" data-ok>${I.ok}Salva</button></div>`, (bg, close) => {
+    $("[data-no]", bg) && ($("[data-no]", bg).onclick = close);
+    $("[data-del]", bg) && ($("[data-del]", bg).onclick = async () => { if (!confirm("Eliminare il contatto?")) return; try { await crmModifica(L => { const i = L.findIndex(x => x.id === c.id); if (i >= 0) L.splice(i, 1); }); close(); viewCrm(); } catch (e) { toast(e.message, true); } });
+    $("[data-ok]", bg).onclick = async () => { const n = {}; $$("[data-k]", bg).forEach(i => n[i.dataset.k] = i.value.trim()); if (!n.nome) return toast("Scrivi il nome", true);
+      if (n.stato === "richiamare" && !n.richiama) n.richiama = oggi();
+      try { await crmModifica(L => { const x = c && L.find(z => z.id === c.id), now = new Date().toISOString();
+        if (x) { if (x.stato !== n.stato) x.storia = [...(x.storia || []), { t: now, ev: "Stato: " + CRM_ST[n.stato][0] }]; Object.assign(x, n, { agg: now }); }
+        else L.push({ id: "k" + Date.now().toString(36), ...n, inviato: now, agg: now, storia: [{ t: now, ev: "Aggiunto a mano" }] }); }); toast("Salvato"); close(); viewCrm(); } catch (e) { toast(e.message, true); } };
+  });
+}
+function crmImporta() {
+  sheet("Importa da Gmail", `<p class="hint">Prendo i destinatari delle email che hai inviato (anche le bozze) e li aggiungo come «Inviato». Chi c'è già non viene duplicato.</p>
+    <div class="f"><label>Categoria</label><select id="ki-cat">${Object.entries(CRM_CAT).map(([k, l]) => `<option value="${k}" ${CRM_FIL.cat === k ? "selected" : ""}>${l}</option>`).join("")}</select></div>
+    <div class="f"><label>Cerca in Gmail</label><input id="ki-q" autocapitalize="off" value="in:sent newer_than:120d" placeholder="in:sent subject:(conformità) newer_than:90d"></div>
+    <p class="hint">Esempi: <code>in:sent subject:(Relazione Tecnica Integrata)</code> · <code>in:drafts</code></p>
+    <div class="row2"><button class="btn" data-no>Annulla</button><button class="btn pri" data-ok>Importa</button></div>`, (bg, close) => {
+    $("[data-no]", bg).onclick = close;
+    $("[data-ok]", bg).onclick = async () => { const b = $("[data-ok]", bg); b.disabled = true; b.innerHTML = `<span class="spin"></span> Cerco…`; const cat = $("#ki-cat", bg).value;
+      try { const msgs = await gmail.cerca($("#ki-q", bg).value.trim(), 300), nuovi = {};
+        for (const m of msgs) { const to = hdr(m, "To"); for (const part of to.split(",")) { const e = mailDi(part)[0]; if (!e || /piedavidecoppola/i.test(e)) continue;
+          const nome = part.replace(/<.*>/, "").replace(/"/g, "").trim() || e.split("@")[0]; const t = new Date(+m.internalDate).toISOString();
+          if (!nuovi[e] || t < nuovi[e].inviato) nuovi[e] = { nome, email: e, inviato: t, ogg: hdr(m, "Subject") }; } }
+        let n = 0; await crmModifica(L => { const ci = new Set(L.map(c => String(c.email || "").toLowerCase())); for (const x of Object.values(nuovi)) { if (ci.has(x.email)) continue; n++;
+          L.push({ id: "k" + Date.now().toString(36) + n, nome: x.nome, email: x.email, cat, stato: "inviato", inviato: x.inviato, agg: x.inviato, storia: [{ t: x.inviato, ev: "Inviata: " + x.ogg }] }); } });
+        toast(`${n} contatti importati`); close(); viewCrm();
+      } catch (e) { b.disabled = false; b.textContent = "Importa"; toast(e.message, true); } };
+  });
+}
+
+/* ===== Post social dalla pratica (carosello 1080×1350, anonimo) ===== */
+const POST_DEF = {
+  conformita: ["Rogito tra 3 settimane. Poi il notaio chiede la conformità…", "In catasto la planimetria non corrispondeva allo stato reale: una parete spostata e una veranda mai autorizzata.", "Accesso agli atti e verifica dello stato legittimo\nPratica in sanatoria per le difformità\nAggiornamento catastale DOCFA", "Immobile conforme, rogito nella data prevista", "Vendi o compri casa? Fai la verifica prima della proposta d'acquisto."],
+  ape: ["Annuncio pronto, ma manca l'APE…", "Senza APE valido l'immobile non si può pubblicizzare né vendere o affittare.", "Sopralluogo e rilievo dei dati energetici\nCalcolo e redazione dell'APE\nTrasmissione al catasto energetico CENED", "APE pronto in pochi giorni, annuncio online", "Devi vendere o affittare? Richiedi l'APE prima di pubblicare l'annuncio."],
+  cila: ["Lavori in casa: prima la pratica, poi il cantiere", "Il cliente voleva rifare bagno e cucina spostando alcune pareti interne.", "Rilievo dello stato di fatto\nProgetto e CILA in Comune\nFine lavori e aggiornamento catastale", "Lavori in regola e immobile vendibile in futuro", "Stai per ristrutturare? Scrivimi prima di iniziare i lavori."],
+  catasto: ["La planimetria catastale era sbagliata…", "La planimetria in catasto non rispecchiava la distribuzione reale dell'immobile.", "Rilievo dell'immobile\nNuova planimetria\nVariazione catastale DOCFA", "Catasto aggiornato e documenti in ordine", "La tua planimetria è aggiornata? Facciamo una verifica."],
+  altro: ["Un caso reale dello studio", "Il problema da risolvere per il cliente.", "Primo passaggio\nSecondo passaggio\nTerzo passaggio", "Problema risolto", "Hai un caso simile? Scrivimi in DM."] };
+POST_DEF.sanatoria = POST_DEF.conformita; POST_DEF.scia = POST_DEF.cila; POST_DEF.accesso = POST_DEF.conformita;
+const POST_C = { bg: "#0E1B33", oro: "#C9A24B", tx: "#F3EEE2", rosso: "#E24B4A" };
+function postWrap(ctx, testo, x, y, w, lh, max = 99) { const righe = []; for (const par of String(testo).split("\n")) { let r = ""; for (const p of par.split(" ")) { const t = r ? r + " " + p : p; if (ctx.measureText(t).width > w && r) { righe.push(r); r = p; } else r = t; } righe.push(r); }
+  righe.slice(0, max).forEach((r, i) => ctx.fillText(r, x, y + i * lh)); return y + Math.min(righe.length, max) * lh; }
+async function postSlide(i, v, img) {
+  const c = document.createElement("canvas"); c.width = 1080; c.height = 1350; const x = c.getContext("2d"), F = s => `${s}px system-ui,-apple-system,"Segoe UI",sans-serif`;
+  x.fillStyle = POST_C.bg; x.fillRect(0, 0, 1080, 1350); x.textBaseline = "top";
+  x.fillStyle = POST_C.oro; x.font = F(30); x.fillText("Studio Tecnico Davide Coppola · Perito Edile", 80, 1260); x.textAlign = "right"; x.fillText(`${i + 1}/5`, 1000, 1260); x.textAlign = "left";
+  if (i === 0) { x.fillStyle = POST_C.oro; x.fillRect(80, 90, 520, 64); x.fillStyle = POST_C.bg; x.font = F(32); x.fillText(v.etich.toUpperCase(), 104, 106);
+    x.fillStyle = POST_C.tx; x.font = "600 " + F(84); postWrap(x, v.s[0], 80, 420, 920, 104, 6); }
+  if (i === 1) { x.fillStyle = POST_C.oro; x.font = F(36); x.fillText("IL PROBLEMA", 80, 90);
+    if (img) { const r = Math.min(920 / img.width, 620 / img.height), w = img.width * r, h = img.height * r; x.drawImage(img, 80 + (920 - w) / 2, 170 + (620 - h) / 2, w, h); }
+    else { x.strokeStyle = POST_C.tx; x.lineWidth = 8; x.strokeRect(120, 200, 640, 520); x.beginPath(); x.moveTo(420, 200); x.lineTo(420, 470); x.stroke(); x.setLineDash([28, 18]); x.strokeStyle = POST_C.rosso; x.beginPath(); x.moveTo(420, 470); x.lineTo(760, 470); x.stroke(); x.setLineDash([]);
+      x.fillStyle = "rgba(226,75,74,.35)"; x.fillRect(760, 290, 200, 340); x.strokeStyle = POST_C.rosso; x.lineWidth = 6; x.strokeRect(760, 290, 200, 340); }
+    x.fillStyle = POST_C.tx; x.font = F(48); postWrap(x, v.s[1], 80, 850, 920, 64, 5); }
+  if (i === 2) { x.fillStyle = POST_C.oro; x.font = F(36); x.fillText("COSA ABBIAMO FATTO", 80, 90); let y = 260;
+    v.s[2].split("\n").filter(Boolean).slice(0, 4).forEach((t, n) => { x.strokeStyle = POST_C.oro; x.lineWidth = 5; x.beginPath(); x.arc(130, y + 34, 46, 0, 7); x.stroke(); x.fillStyle = POST_C.oro; x.font = "600 " + F(48); x.textAlign = "center"; x.fillText(n + 1, 130, y + 8); x.textAlign = "left";
+      x.fillStyle = POST_C.tx; x.font = F(50); y = Math.max(postWrap(x, t, 220, y, 780, 64, 3), y + 120) + 70; }); }
+  if (i === 3) { x.strokeStyle = POST_C.oro; x.lineWidth = 10; x.beginPath(); x.arc(540, 520, 150, 0, 7); x.stroke(); x.lineWidth = 18; x.lineCap = "round"; x.beginPath(); x.moveTo(470, 525); x.lineTo(525, 580); x.lineTo(620, 470); x.stroke();
+    x.fillStyle = POST_C.tx; x.font = "600 " + F(70); x.textAlign = "center"; postWrap(x, v.s[3], 540, 760, 900, 88, 4); x.textAlign = "left"; }
+  if (i === 4) { x.fillStyle = POST_C.tx; x.font = "600 " + F(76); const y = postWrap(x, v.s[4], 80, 260, 920, 96, 5);
+    x.fillStyle = POST_C.oro; x.font = F(46); ["Scrivimi in DM", "338 123 2370", "studiotecnicodavidecoppola.com"].forEach((t, n) => x.fillText(t, 80, Math.max(y + 120, 800) + n * 72));
+    x.fillStyle = POST_C.tx; x.font = F(34); x.fillText("Rho · Milano · Como · Monza · Varese", 80, 1170); }
+  return new Promise(ok => c.toBlob(ok, "image/png"));
+}
+function genPost(p, m) {
+  const cat = catOf(String(m.tipo || p.dir)), d = POST_DEF[cat] || POST_DEF.altro;
+  const etich = { ape: "Caso reale · APE", cila: "Caso reale · ristrutturazione", scia: "Caso reale · ristrutturazione", catasto: "Caso reale · catasto" }[cat] || "Caso reale · pre-rogito";
+  const did = `${d[1]} ${d[4]}\n\n📍 Rho · Milano · Como · Monza · Varese\n#periedile #studiotecnico #${cat === "ape" ? "ape #certificazioneenergetica" : cat === "cila" || cat === "scia" ? "ristrutturazione #cila" : "conformitàurbanistica #rogito #catasto"}`;
+  sheet("Post social", `<p class="hint">Testi già anonimi: niente nomi, indirizzi o dati catastali. Correggili come vuoi.</p>
+    ${["Slide 1 – titolo", "Slide 2 – il problema", "Slide 3 – cosa abbiamo fatto (una riga per passaggio)", "Slide 4 – risultato", "Slide 5 – invito"].map((l, i) => `<div class="f"><label>${l}</label><textarea data-s="${i}" rows="${i === 2 ? 3 : 2}">${esc(d[i])}</textarea></div>`).join("")}
+    <div class="f"><label>Immagine slide 2 (facoltativa: render o stralcio di pianta senza misure)</label><input type="file" id="po-img" accept="image/*"></div>
+    <div class="f"><label>Didascalia</label><textarea id="po-did" rows="5">${esc(did)}</textarea></div>
+    <div id="po-prev" style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px"></div>
+    <div class="row2"><button class="btn" data-no>Chiudi</button><button class="btn pri" data-ok>Crea immagini</button></div>`, (bg, close) => {
+    $("[data-no]", bg).onclick = close; let files = null;
+    $("[data-ok]", bg).onclick = async () => { const b = $("[data-ok]", bg);
+      if (files) { try { await navigator.share({ files, text: $("#po-did", bg).value }); } catch (e) { if (e.name !== "AbortError") { navigator.clipboard?.writeText($("#po-did", bg).value); toast("Condivisione non disponibile: immagini salvate nella pratica, didascalia copiata", true); } } return; }
+      b.disabled = true; b.innerHTML = `<span class="spin"></span> Creo…`;
+      try { const v = { etich, s: $$("[data-s]", bg).map(t => t.value.trim()) }, f = $("#po-img", bg).files[0];
+        const img = f ? await createImageBitmap(f) : null, dir = [String(p.anno), p.dir, "_social"], st = new Date().toISOString().slice(0, 10);
+        const blobs = []; for (let i = 0; i < 5; i++) blobs.push(await postSlide(i, v, img));
+        files = blobs.map((bl, i) => new File([bl], `post_${st}_${i + 1}.png`, { type: "image/png" }));
+        $("#po-prev", bg).innerHTML = files.map(fl => `<img src="${URL.createObjectURL(fl)}" style="width:100%;border-radius:6px">`).join("");
+        await Promise.all([...files.map(fl => putSmall([...dir, fl.name], fl, { type: "image/png", conflict: "replace" })), putSmall([...dir, `post_${st}_didascalia.txt`], $("#po-did", bg).value, { type: "text/plain", conflict: "replace" })]);
+        logPratica(p, "Creato post social (5 immagini in _social)", "manuale");
+        b.disabled = false; b.innerHTML = navigator.canShare?.({ files }) ? `${I.up}Condividi (Metricool / Instagram)` : `${I.ok}Salvate in _social`; toast("Immagini salvate nella cartella _social della pratica");
+      } catch (e) { b.disabled = false; b.textContent = "Crea immagini"; toast(e.message, true); } };
+  });
+}
 function route() {
   if (window.__linkpc) return;
   if (!location.hash) { history.replaceState(null, "", "#/oggi"); }
@@ -2138,6 +2346,7 @@ function route() {
   if (h === "#/task") return viewTask();
   if (h === "#/agenda") return viewAgenda();
   if (h === "#/clienti") return viewClienti();
+  if (h === "#/crm") return viewCrm();
   return viewLista();
 }
 const BOT_CFG = () => ls.get("ps_bot", null);
