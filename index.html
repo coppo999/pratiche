@@ -720,7 +720,7 @@ async function tabDoc(p, body) {
   const parts = [String(p.anno), p.dir, ...PCUR.sub];
   const crumbs = [`<a href="#" data-c="0">${esc(p.codice || "Pratica")}</a>`, ...PCUR.sub.map((s, i) => `<a href="#" data-c="${i + 1}">${esc(s)}</a>`)].join(" › ");
   body.innerHTML = `<div class="crumbs">${crumbs}</div>
-    <div class="up"><label class="btn gold">${I.cam}Scatta foto<input type="file" accept="image/*" capture="environment" id="d-cam" hidden></label>
+    <div class="up"><select id="d-amb" class="btn" title="Ambiente della foto">${["cucina", "soggiorno", "camera", "bagno", "corridoio", "ingresso", "balcone", "terrazzo", "cantina", "box", "sottotetto", "facciata", "cortile", "caldaia", "contatori", "impianti", "difformita", "altro"].map(a => `<option ${ls.get("ps_amb", "cucina") === a ? "selected" : ""}>${a}</option>`).join("")}</select><label class="btn gold">${I.cam}Scatta foto<input type="file" accept="image/*" capture="environment" id="d-cam" hidden></label>
       <label class="btn">${I.up}Carica file<input type="file" multiple id="d-up" hidden></label><button class="btn" id="d-sel">${PCUR.selOn ? "Fine selezione" : "🔗 Seleziona per link"}</button></div>
     <div id="d-prog"></div><div class="fl" id="d-l"><div class="empty"><span class="spin"></span> Carico i file…</div></div>
     <div id="d-selbar" style="position:sticky;bottom:78px;z-index:5"></div><div id="d-links"></div>
@@ -742,7 +742,12 @@ async function tabDoc(p, body) {
     const prog = $("#d-prog", body); const nomi = [];
     for (let i = 0; i < files.length; i++) {
       let f = files[i], nome = safeName(f.name) || "file";
-      if (foto || /^image\.(jpe?g|heic|png)$/i.test(nome)) { const d = new Date(), pad = x => String(x).padStart(2, "0"); nome = `Foto_${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}${files.length > 1 ? "_" + (i + 1) : ""}.${extOf(nome) || "jpg"}`; }
+      if (foto) { const amb = ($("#d-amb", body)?.value || "foto").replace(/\s+/g, "-"), pre = `${oggi()}_${amb}_`, dove = PCUR.sub.length ? null : "Foto sopralluogo";
+        const es = (dove ? (PCUR.files || []).find(x => x.folder && x.name === dove) ? await gList([...parts, dove]).catch(() => []) : [] : PCUR.files || []).map(x => x.name).concat(nomi).filter(n => n.startsWith(pre));
+        const nn = Math.max(0, ...es.map(n => parseInt(n.slice(pre.length)) || 0)) + 1; nome = `${pre}${String(nn).padStart(2, "0")}.${(extOf(nome) || "jpg").toLowerCase()}`;
+        prog.innerHTML = `<div class="hint">Carico ${esc(nome)} (${i + 1}/${files.length})</div><div class="prog"><i id="d-pi"></i></div>`;
+        try { const r = await upload([...parts, ...(dove ? [dove] : []), nome], f, x => { const b = $("#d-pi"); if (b) b.style.width = Math.round(x * 100) + "%"; }); nomi.push(r?.name || nome); } catch (e) { toast(`Non caricato ${nome}: ${e.message}`, true); } continue; }
+      if (/^image\.(jpe?g|heic|png)$/i.test(nome)) { const d = new Date(), pad = x => String(x).padStart(2, "0"); nome = `Foto_${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}${files.length > 1 ? "_" + (i + 1) : ""}.${extOf(nome) || "jpg"}`; }
       prog.innerHTML = `<div class="hint">Carico ${esc(nome)} (${i + 1}/${files.length}) · ${fmtSize(f.size)}</div><div class="prog"><i id="d-pi"></i></div>`;
       try { const r = await upload([...parts, nome], f, x => { const b = $("#d-pi"); if (b) b.style.width = Math.round(x * 100) + "%"; }); nomi.push(r?.name || nome); }
       catch (e) { toast(`Non caricato ${nome}: ${e.message}`, true); }
@@ -750,6 +755,7 @@ async function tabDoc(p, body) {
     prog.innerHTML = "";
     if (nomi.length) { toast(nomi.length === 1 ? `Caricato ${nomi[0]}` : `Caricati ${nomi.length} file`); logPratica(p, `Caricat${nomi.length === 1 ? "o" : "i"}: ${nomi.join(", ")}${PCUR.sub.length ? " in " + PCUR.sub.join(" / ") : ""}`, "upload"); PCUR.files = null; tabDoc(p, body); }
   };
+  $("#d-amb", body).onchange = e => ls.set("ps_amb", e.target.value);
   $("#d-cam", body).onchange = e => { const f = [...e.target.files]; e.target.value = ""; if (f.length) caricaFiles(f, true); };
   $("#d-up", body).onchange = e => { const f = [...e.target.files]; e.target.value = ""; if (f.length) caricaFiles(f, false); };
   try {
@@ -1794,8 +1800,8 @@ async function viewOggi() {
     <div class="card og-sec"><h3>Incassi da fare <small>${eur(totInc)}</small></h3>${inc.slice(0, 8).map(x => ogPratica(x.p, eur(x.r))).join("") || '<div class="hint">Nessun incasso in sospeso</div>'}</div>
     <div class="card og-sec"><h3>Aperte di recente</h3>${rec.map(p => ogPratica(p)).join("") || '<div class="hint">Le pratiche che apri compaiono qui</div>'}</div>`;
   { const L = scadenze(), el = $("#o-sc"), nr = D.crm ? crmDaRichiamare() : 0;
-    el.innerHTML = `<h3>Scadenze <small>${L.length ? L.length + " da gestire" : "APE, fine lavori, agibilità"}</small></h3>${L.slice(0, 5).map(scadRiga).join("") || '<div class="hint">Nessuna scadenza</div>'}<div class="row2" style="margin-top:8px">${L.length > 5 ? '<button class="btn" id="o-scall">Tutte le scadenze</button>' : ""}<button class="btn" id="o-crm">Campagne${nr ? ` (${nr} da richiamare)` : ""}</button></div>`;
-    scadWire(el, L, viewOggi); $("#o-scall") && ($("#o-scall").onclick = scadApri); $("#o-crm").onclick = () => { location.hash = "#/crm"; };
+    el.innerHTML = `<h3>Scadenze <small>${L.length ? L.length + " da gestire" : "APE, fine lavori, agibilità"}</small></h3>${L.slice(0, 5).map(scadRiga).join("") || '<div class="hint">Nessuna scadenza</div>'}<div class="row2" style="margin-top:8px">${L.length > 5 ? '<button class="btn" id="o-scall">Tutte le scadenze</button>' : ""}<button class="btn" id="o-resa">Resa per tipo</button><button class="btn" id="o-crm">Campagne${nr ? ` (${nr} da richiamare)` : ""}</button></div>`;
+    scadWire(el, L, viewOggi); $("#o-scall") && ($("#o-scall").onclick = scadApri); $("#o-crm").onclick = () => { location.hash = "#/crm"; }; $("#o-resa").onclick = () => { location.hash = "#/resa"; };
     if (!D.crm) crmCarica().then(() => { const n = crmDaRichiamare(); if (n && $("#o-crm")) $("#o-crm").textContent = `Campagne (${n} da richiamare)`; }).catch(() => {}); }
   ogWire($("#o-g")); $("#o-all").onclick = () => { location.hash = "#/task"; };
   $$("#o-tk .tk").forEach(r => { const x = D.task.find(z => z.id === r.dataset.id); if (!x) return;
@@ -2332,6 +2338,47 @@ function genPost(p, m) {
       } catch (e) { b.disabled = false; b.textContent = "Crea immagini"; toast(e.message, true); } };
   });
 }
+/* ===== Resa per tipo di pratica, mese per mese (da novembre 2026) ===== */
+const RESA_DA = "2026-11", CATLAB = { ape: "APE", cila: "CILA", scia: "SCIA", sanatoria: "Sanatorie", catasto: "Catasto / DOCFA", accesso: "Accesso atti", agibilita: "Agibilità", conformita: "Conformità", idoneita: "Idoneità alloggiativa", impianti: "Impianti", altro: "Altro" };
+const resaPar = () => ({ coeff: 78, imp: 15, prev: 18, ...ls.get("ps_resa", {}) });
+function resaCalc() {
+  const P = resaPar(), R = {}, pr = (cod, key) => (key && D.byKey[key]) || D.prat.find(p => p.codice === cod);
+  const riga = (mese, cat) => { if (mese < RESA_DA) return null; const M = R[mese] = R[mese] || {}; return M[cat] = M[cat] || { ore: 0, fatt: 0, nf: 0, sp: 0, prat: new Set() }; };
+  const catDi = p => catOf(String(metaOf(p).tipo || p.dir));
+  for (const o of D.ore || []) { const p = pr(o.cod, o.key); if (!p || !o.data) continue; const r = riga(o.data.slice(0, 7), catDi(p)); if (r) { r.ore += num(o.ore); r.prat.add(p.key); } }
+  for (const [cod, c] of Object.entries((CONT_PRAT || {}).pratiche || {})) { const p = pr(cod); const cat = p ? catDi(p) : "altro";
+    for (const f of c.fatture || []) { const r = riga(String(f.data).slice(0, 7), cat); if (r) { r.fatt += num(f.imponibile ?? f.totale); if (p) r.prat.add(p.key); } }
+    for (const x of c.esterni || []) { const r = riga(String(x.data).slice(0, 7), cat); if (r) r.nf += num(x.importo); }
+    for (const x of c.spese || []) { const r = riga(String(x.data).slice(0, 7), cat); if (r) r.sp += num(x.importo); } }
+  const k = P.coeff / 100, tasse = f => { const red = f * k, pv = red * P.prev / 100; return pv + (red - pv) * P.imp / 100; };
+  for (const M of Object.values(R)) for (const r of Object.values(M)) { r.netto = r.fatt - tasse(r.fatt) + r.nf - r.sp; r.eh = r.ore > 0 ? r.netto / r.ore : null; }
+  return R;
+}
+async function viewResa() {
+  app().innerHTML = `<header class="hdr"><div class="row"><button class="ib" id="r-back">${I.back}</button><h1 style="flex:1">Resa per tipo</h1><button class="ib" id="r-set" title="Percentuali">${I.cog}</button></div><div class="sub">Guadagno netto all'ora, mese per mese da novembre 2026</div></header>
+    <main id="r-m"><div class="empty"><span class="spin"></span> Carico…</div></main>${tabbar("o")}`;
+  wireTabbar(); $("#r-back").onclick = () => history.back(); $("#r-set").onclick = resaImpost;
+  await Promise.all([D.ore ? 0 : oreCarica().catch(() => {}), contLoad()]);
+  const R = resaCalc(), mesi = Object.keys(R).sort().reverse(), h = n => String(Math.round(n * 10) / 10).replace(".", ","), P = resaPar();
+  const tab = (M, tot) => `<table style="width:100%;border-collapse:collapse;font-size:13.5px"><tr style="color:var(--muted);text-align:right"><th style="text-align:left;font-weight:500">Tipo</th><th style="font-weight:500">Ore</th><th style="font-weight:500">Netto</th><th style="font-weight:500">€/h</th></tr>
+    ${Object.entries(M).sort((a, b) => (b[1].eh ?? -1e9) - (a[1].eh ?? -1e9)).map(([c, r]) => `<tr style="border-top:1px solid var(--line);text-align:right"><td style="text-align:left;padding:7px 0">${esc(CATLAB[c] || c)}<br><small class="muted">${r.prat.size} prat.</small></td><td>${h(r.ore)}</td><td>${eur(r.netto)}</td><td><b>${r.eh == null ? "–" : eur(r.eh)}</b></td></tr>`).join("")}
+    <tr style="border-top:2px solid var(--line);text-align:right"><td style="text-align:left;padding:7px 0"><b>Totale</b></td><td><b>${h(tot.ore)}</b></td><td><b>${eur(tot.netto)}</b></td><td><b>${tot.ore ? eur(tot.netto / tot.ore) : "–"}</b></td></tr></table>`;
+  const somma = Ms => { const T = {}, tot = { ore: 0, netto: 0 }; for (const M of Ms) for (const [c, r] of Object.entries(M)) { const t = T[c] = T[c] || { ore: 0, netto: 0, prat: new Set() }; t.ore += r.ore; t.netto += r.netto; r.prat.forEach(x => t.prat.add(x)); tot.ore += r.ore; tot.netto += r.netto; }
+    for (const t of Object.values(T)) t.eh = t.ore > 0 ? t.netto / t.ore : null; return [T, tot]; };
+  if (!mesi.length) { $("#r-m").innerHTML = `<div class="empty">Ancora nessun dato da novembre 2026: segna le ore sulle pratiche e i dati compaiono qui.</div>`; return; }
+  const [Tt, tt] = somma(mesi.map(k => R[k]));
+  $("#r-m").innerHTML = (mesi.length > 1 ? `<div class="card og-sec"><h3>Totale da novembre 2026</h3>${tab(Tt, tt)}</div>` : "") + mesi.map(k => { const [M, tot] = somma([R[k]]);
+    return `<div class="card og-sec"><h3>${new Date(k + "-01").toLocaleDateString("it-IT", { month: "long", year: "numeric" })}</h3>${tab(M, tot)}</div>`; }).join("")
+    + `<p class="hint" style="margin:6px 4px 20px">Netto = fatturato − imposta e previdenza (coeff. ${P.coeff}%, imposta ${P.imp}%, previdenza ${P.prev}%) + pagamenti NF − spese. Fatture, NF e spese contano nel mese della loro data, le ore nel mese in cui le segni.</p>`;
+}
+function resaImpost() {
+  const P = resaPar();
+  sheet("Percentuali per il calcolo", `${[["coeff", "Coefficiente di redditività %"], ["imp", "Imposta sostitutiva %"], ["prev", "Previdenza EPPI (contributo soggettivo) %"]].map(([k, l]) => `<div class="f"><label>${l}</label><input data-k="${k}" inputmode="decimal" value="${String(P[k]).replace(".", ",")}"></div>`).join("")}
+    <p class="hint">Metti le stesse percentuali che usi in Contabilità.</p><div class="row2"><button class="btn" data-no>Annulla</button><button class="btn pri" data-ok>Salva</button></div>`, (bg, close) => {
+    $("[data-no]", bg).onclick = close;
+    $("[data-ok]", bg).onclick = () => { const n = {}; $$("[data-k]", bg).forEach(i => n[i.dataset.k] = num(i.value)); ls.set("ps_resa", n); close(); viewResa(); };
+  });
+}
 function route() {
   if (window.__linkpc) return;
   if (!location.hash) { history.replaceState(null, "", "#/oggi"); }
@@ -2347,6 +2394,7 @@ function route() {
   if (h === "#/agenda") return viewAgenda();
   if (h === "#/clienti") return viewClienti();
   if (h === "#/crm") return viewCrm();
+  if (h === "#/resa") return viewResa();
   return viewLista();
 }
 const BOT_CFG = () => ls.get("ps_bot", null);
