@@ -1784,6 +1784,7 @@ async function viewOggi() {
   try { if (!D.task) await taskCarica(); } catch (e) {}
   try { if (!D.ore) await oreCarica(); } catch (e) {}
   try { await contLoad(); } catch (e) {}
+  try { if (!D.prev) await prevCarica(); } catch (e) {}
   const tk = D.task || [], ore = D.ore || [], ap = tk.filter(x => !x.done);
   const late = ap.filter(x => x.due && x.due < o), oggiT = ap.filter(x => x.due === o), dom = ap.filter(x => x.due === domani());
   const ult = p => { const m = metaOf(p), L = m.diario || []; const a = L.length ? L[L.length - 1].t : ""; return a > (m.aggiornato || "") ? a : (m.aggiornato || ""); };
@@ -1795,13 +1796,15 @@ async function viewOggi() {
   const rec = ls.get("ps_recenti", []).map(k => D.byKey[k]).filter(Boolean);
   const tl = [...late, ...oggiT, ...dom].slice(0, 10);
   $("#o-g").innerHTML = `<div class="card og-sec"><h3>Task <small>${late.length ? late.length + " in ritardo" : "oggi e domani"}</small></h3><div id="o-tk">${tl.map(taskRiga).join("") || '<div class="hint" style="padding:8px 0">Niente in scadenza oggi o domani</div>'}</div><button class="btn" id="o-all" style="margin-top:8px;width:100%">Tutti i task</button></div>
+    <div class="card og-sec" id="o-pv"></div>
     <div class="card og-sec" id="o-sc"></div>
     <div class="card og-sec"><h3>Pratiche ferme <small>14+ giorni senza attività</small></h3>${fermi.map(x => ogPratica(x.p, x.g + " gg")).join("") || '<div class="hint">Tutto in movimento</div>'}</div>
     <div class="card og-sec"><h3>Incassi da fare <small>${eur(totInc)}</small></h3>${inc.slice(0, 8).map(x => ogPratica(x.p, eur(x.r))).join("") || '<div class="hint">Nessun incasso in sospeso</div>'}</div>
     <div class="card og-sec"><h3>Aperte di recente</h3>${rec.map(p => ogPratica(p)).join("") || '<div class="hint">Le pratiche che apri compaiono qui</div>'}</div>`;
   { const L = scadenze(), el = $("#o-sc"), nr = D.crm ? crmDaRichiamare() : 0;
-    el.innerHTML = `<h3>Scadenze <small>${L.length ? L.length + " da gestire" : "APE, fine lavori, agibilità"}</small></h3>${L.slice(0, 5).map(scadRiga).join("") || '<div class="hint">Nessuna scadenza</div>'}<div class="row2" style="margin-top:8px">${L.length > 5 ? '<button class="btn" id="o-scall">Tutte le scadenze</button>' : ""}<button class="btn" id="o-resa">Resa per tipo</button><button class="btn" id="o-crm">Campagne${nr ? ` (${nr} da richiamare)` : ""}</button></div>`;
-    scadWire(el, L, viewOggi); $("#o-scall") && ($("#o-scall").onclick = scadApri); $("#o-crm").onclick = () => { location.hash = "#/crm"; }; $("#o-resa").onclick = () => { location.hash = "#/resa"; };
+    el.innerHTML = `<h3>Scadenze <small>${L.length ? L.length + " da gestire" : "APE, fine lavori, agibilità"}</small></h3>${L.slice(0, 5).map(scadRiga).join("") || '<div class="hint">Nessuna scadenza</div>'}<div class="row2" style="margin-top:8px">${L.length > 5 ? '<button class="btn" id="o-scall">Tutte le scadenze</button>' : ""}<button class="btn" id="o-resa">Resa per tipo</button><button class="btn" id="o-nor">Regolamenti</button><button class="btn" id="o-crm">Campagne${nr ? ` (${nr} da richiamare)` : ""}</button></div>`;
+    scadWire(el, L, viewOggi); $("#o-scall") && ($("#o-scall").onclick = scadApri); $("#o-crm").onclick = () => { location.hash = "#/crm"; }; $("#o-resa").onclick = () => { location.hash = "#/resa"; }; $("#o-nor").onclick = () => { location.hash = "#/norme"; };
+    { const P = prevDaRicontattare(), pe = $("#o-pv"); if (!P.length) pe.remove(); else { pe.innerHTML = `<h3>Preventivi da ricontattare <small>${P.length}</small></h3>${P.slice(0, 6).map(prevFuRiga).join("")}`; prevFuWire(pe, P, viewOggi); } }
     if (!D.crm) crmCarica().then(() => { const n = crmDaRichiamare(); if (n && $("#o-crm")) $("#o-crm").textContent = `Campagne (${n} da richiamare)`; }).catch(() => {}); }
   ogWire($("#o-g")); $("#o-all").onclick = () => { location.hash = "#/task"; };
   $$("#o-tk .tk").forEach(r => { const x = D.task.find(z => z.id === r.dataset.id); if (!x) return;
@@ -2029,6 +2032,7 @@ async function viewAgenda() {
   el.innerHTML = giorni.map(d => `<div class="card ag"><h3>${esc(giornoLungo(d))}</h3>${G[d].sort((p, q) => (p.ora || "").localeCompare(q.ora || "")).map(o => o.ev
     ? `<div class="ag-r" data-e="${esc(o.ev.id)}"><span class="ag-o">${esc(o.ora || "giornata")}</span><span class="ag-bar"></span><div class="tx"><b>${esc(o.ev.summary || "(senza titolo)")}</b>${o.ev.location ? `<small>${esc(o.ev.location)}</small>` : ""}</div></div>`
     : `<div class="ag-r" data-t="${esc(o.tk.id)}"><span class="ag-o">${esc(o.ora)}</span><span class="ag-bar" style="background:var(--gold)"></span><div class="tx"><b>${esc(o.tk.t)}</b><small>Task${o.tk.due < oggi() ? " in ritardo" : ""}${o.tk.cod ? " · " + esc(o.tk.cod) : ""}</small></div></div>`).join("")}</div>`).join("") || `<div class="empty">Nessun appuntamento nei prossimi 30 giorni</div>`;
+  { const V = sopralluoghiVicini(evs); if (V.length) el.insertAdjacentHTML("afterbegin", `<div class="card og-sec"><h3>Sopralluoghi vicini <small>da mettere nello stesso giorno</small></h3>${V.map(v => `<div style="padding:8px 0;border-bottom:1px solid var(--line)"><b>${esc(v.z)}</b> · ${v.giorni.length} giorni diversi<br>${v.L.map(x => `<small class="muted ag-r" data-e="${esc(x.e.id)}" style="display:block;padding:3px 0">${esc(giornoLungo(x.d))} – ${esc(x.e.summary || "")}</small>`).join("")}<small>Proposta: spostali tutti a <b>${esc(giornoLungo(v.giorni[0]))}</b></small></div>`).join("")}</div>`); }
   $$("[data-e]", el).forEach(r => r.onclick = () => dettaglioEvento(evs.find(e => e.id === r.dataset.e)));
   $$("[data-t]", el).forEach(r => r.onclick = () => editorTask(D.task.find(x => x.id === r.dataset.t), null, viewAgenda));
 }
@@ -2213,22 +2217,22 @@ async function crmSyncGmail(silenzioso) {
   for (let i = 0; i < mail.length; i += 25) {
     const msgs = await gmail.cerca(`from:(${mail.slice(i, i + 25).join(" OR ")}) newer_than:180d -in:sent`, 100);
     for (const m of msgs) { const da = mailDi(hdr(m, "From"))[0], c = per[da]; if (!c) continue; const t = new Date(+m.internalDate).toISOString();
-      if (!c.risposto || t > c.risposto) (trovati[da] = trovati[da] || []).push({ t, thread: m.threadId, ogg: hdr(m, "Subject") }); }
+      if (!c.risposto || t > c.risposto) (trovati[da] = trovati[da] || []).push({ t, thread: m.threadId, ogg: hdr(m, "Subject"), stop: /\bcancella\b/i.test(m.snippet || "") }); }
   }
   const k = Object.keys(trovati); if (!k.length) { if (!silenzioso) toast("Nessuna nuova risposta"); return 0; }
   const lr = await gmail.etichetta("CRM/Risposto"), lc = {};
   for (const e of k) { const c = per[e], cn = "CRM/" + (CRM_CAT[c.cat] || "Altro"); lc[cn] = lc[cn] || await gmail.etichetta(cn);
     for (const x of trovati[e]) await gmail.f(`/threads/${x.thread}/modify`, { method: "POST", body: JSON.stringify({ addLabelIds: [lr, lc[cn]] }) }).catch(() => {}); }
   await crmModifica(C => { for (const c of C) { const x = trovati[String(c.email || "").toLowerCase()]; if (!x) continue; const u = x.sort((a, b) => b.t.localeCompare(a.t))[0];
-    c.risposto = u.t; if (c.stato === "inviato") c.stato = "risposto"; c.storia = [...(c.storia || []), { t: u.t, ev: "Risposta: " + u.ogg }].slice(-50); c.agg = new Date().toISOString(); } });
+    c.risposto = u.t; if (c.stato === "inviato") c.stato = "risposto"; if (x.some(z => z.stop)) c.nonl = true; c.storia = [...(c.storia || []), { t: u.t, ev: "Risposta: " + u.ogg }].slice(-50); c.agg = new Date().toISOString(); } });
   ls.set("ps_crm_sync", Date.now()); toast(`${k.length} nuove risposte`); return k.length;
 }
 async function viewCrm() {
   app().innerHTML = `<header class="hdr"><div class="row"><button class="ib" id="k-back">${I.back}</button><h1 style="flex:1">Campagne</h1><button class="ib" id="k-sync" title="Controlla risposte Gmail">${I.ref}</button><button class="ib" id="k-imp" title="Importa da Gmail">${I.mail}</button><button class="ib" id="k-new">${I.plus}</button></div>
     <div class="search"><input type="search" id="k-q" placeholder="Cerca nome, email, comune…" value="${esc(CRM_FIL.q)}"></div>
     <div class="row2" style="margin-top:8px"><select id="k-cat" class="btn"><option value="">Tutte le categorie</option>${Object.entries(CRM_CAT).map(([k, l]) => `<option value="${k}" ${CRM_FIL.cat === k ? "selected" : ""}>${l}</option>`).join("")}</select><select id="k-st" class="btn"><option value="">Tutti gli stati</option>${Object.entries(CRM_ST).map(([k, [l]]) => `<option value="${k}" ${CRM_FIL.st === k ? "selected" : ""}>${l}</option>`).join("")}</select></div></header>
-    <main><div class="og-kp" id="k-kp"></div><div class="list" id="k-l"><div class="empty"><span class="spin"></span> Carico…</div></div></main>${tabbar("c")}`;
-  wireTabbar(); $("#k-back").onclick = () => history.back(); $("#k-new").onclick = () => crmEditor(null); $("#k-imp").onclick = crmImporta;
+    <main><button class="btn" id="k-nl" style="width:100%;margin:0 0 10px">${I.mail}Invia newsletter del mese</button><div class="og-kp" id="k-kp"></div><div class="list" id="k-l"><div class="empty"><span class="spin"></span> Carico…</div></div></main>${tabbar("c")}`;
+  wireTabbar(); $("#k-back").onclick = () => history.back(); $("#k-new").onclick = () => crmEditor(null); $("#k-imp").onclick = crmImporta; $("#k-nl").onclick = crmNewsletter;
   $("#k-sync").onclick = async () => { const b = $("#k-sync"); b.disabled = true; try { await crmSyncGmail(); } catch (e) { toast(e.message, true); } viewCrm(); };
   try { await crmCarica(); } catch (e) { $("#k-l").innerHTML = `<div class="warn">${esc(e.message)}</div>`; return; }
   const draw = () => { const el = $("#k-l"); if (!el) return; const toks = norm(CRM_FIL.q).split(/\s+/).filter(Boolean);
@@ -2251,11 +2255,12 @@ function crmEditor(c) {
     <div class="row2"><div class="f"><label>Telefono</label><input data-k="tel" type="tel" value="${esc(v.tel || "")}"></div><div class="f"><label>Comune</label><input data-k="comune" value="${esc(v.comune || "")}"></div></div>
     <div class="f"><label>Richiamare il</label><input data-k="richiama" type="date" value="${esc(v.richiama || "")}"></div>
     <div class="f"><label>Nota</label><textarea data-k="nota" rows="3">${esc(v.nota || "")}</textarea></div>
+    <label style="display:flex;gap:8px;align-items:center;margin:0 0 12px"><input type="checkbox" id="ke-nonl" ${v.nonl ? "checked" : ""} style="width:auto">Non mandare la newsletter</label>
     ${(v.storia || []).length ? `<div class="hint" style="margin-bottom:10px">${v.storia.slice(-6).reverse().map(s => `${esc(dataIt(s.t.slice(0, 10)))} – ${esc(s.ev)}`).join("<br>")}</div>` : ""}
     <div class="row2">${c ? `<button class="btn" data-del>${I.trash}Elimina</button>` : `<button class="btn" data-no>Annulla</button>`}<button class="btn pri" data-ok>${I.ok}Salva</button></div>`, (bg, close) => {
     $("[data-no]", bg) && ($("[data-no]", bg).onclick = close);
     $("[data-del]", bg) && ($("[data-del]", bg).onclick = async () => { if (!confirm("Eliminare il contatto?")) return; try { await crmModifica(L => { const i = L.findIndex(x => x.id === c.id); if (i >= 0) L.splice(i, 1); }); close(); viewCrm(); } catch (e) { toast(e.message, true); } });
-    $("[data-ok]", bg).onclick = async () => { const n = {}; $$("[data-k]", bg).forEach(i => n[i.dataset.k] = i.value.trim()); if (!n.nome) return toast("Scrivi il nome", true);
+    $("[data-ok]", bg).onclick = async () => { const n = {}; $$("[data-k]", bg).forEach(i => n[i.dataset.k] = i.value.trim()); n.nonl = $("#ke-nonl", bg).checked; if (!n.nome) return toast("Scrivi il nome", true);
       if (n.stato === "richiamare" && !n.richiama) n.richiama = oggi();
       try { await crmModifica(L => { const x = c && L.find(z => z.id === c.id), now = new Date().toISOString();
         if (x) { if (x.stato !== n.stato) x.storia = [...(x.storia || []), { t: now, ev: "Stato: " + CRM_ST[n.stato][0] }]; Object.assign(x, n, { agg: now }); }
@@ -2379,6 +2384,119 @@ function resaImpost() {
     $("[data-ok]", bg).onclick = () => { const n = {}; $$("[data-k]", bg).forEach(i => n[i.dataset.k] = num(i.value)); ls.set("ps_resa", n); close(); viewResa(); };
   });
 }
+/* ===== Preventivi da ricontattare (7 e 15 giorni) ===== */
+function prevDaRicontattare() { const now = Date.now();
+  return (D.prev || []).filter(x => x.stato === "attesa" && x.data).map(x => { const g = Math.floor((now - Date.parse(x.data)) / 864e5), n = (x.fu || []).length, liv = n === 0 && g >= 7 ? 1 : n === 1 && g >= 15 ? 2 : 0; return liv && g < 90 ? { x, g, liv } : null; }).filter(Boolean).sort((a, b) => b.g - a.g); }
+function prevTesto(o) { const x = o.x, nome = titleCase(String(x.dest || "").split(/\s+/).slice(1).join(" ") || x.dest || ""), cosa = `${x.tipo ? String(x.tipo).toLowerCase() : "la pratica"}${x.indirizzo ? " per l'immobile in " + titleCase(x.indirizzo) : x.comune ? " a " + titleCase(x.comune) : ""}`;
+  return o.liv === 1 ? `Buongiorno ${nome}, sono Davide Coppola. Le scrivo per sapere se ha avuto modo di vedere il preventivo n. ${x.numero || ""} per ${cosa}. Se ha domande o vuole modificare qualcosa sono a disposizione. Buona giornata!`
+    : `Buongiorno ${nome}, un breve promemoria sul preventivo n. ${x.numero || ""} per ${cosa}. Nessuna fretta: quando decide mi faccia sapere. Grazie e buona giornata!`; }
+function prevFuRiga(o, i) { return `<div style="padding:9px 0;border-bottom:1px solid var(--line)"><div style="display:flex;justify-content:space-between;gap:8px"><b>${esc(titleCase(o.x.dest || "Cliente"))}</b><small class="muted">${o.liv === 1 ? "1° ricontatto" : "2° ricontatto"} · ${o.g} gg</small></div>
+  <small class="muted">${esc(["n. " + (o.x.numero || ""), o.x.tipo, o.x.comune && titleCase(o.x.comune), num(o.x.imponibile) ? eur(num(o.x.imponibile)) : ""].filter(Boolean).join(" · "))}</small>
+  <div class="row2" style="margin-top:7px"><button class="btn" data-pw="${i}">${I.chat}WhatsApp</button><button class="btn" data-pe="${i}">${I.mail}E-mail</button><button class="btn" data-pf="${i}">${I.ok}Fatto</button><button class="btn" data-pr="${i}">${I.trash}Rifiutato</button></div></div>`; }
+function prevFuWire(el, L, rifai) {
+  $$("[data-pw]", el).forEach(b => b.onclick = () => { const o = L[b.dataset.pw]; window.open(`https://wa.me/${waNum(o.x.telefono)}?text=${encodeURIComponent(prevTesto(o))}`, "_blank"); });
+  $$("[data-pe]", el).forEach(b => b.onclick = () => { const o = L[b.dataset.pe]; location.href = `mailto:${o.x.email || ""}?subject=${encodeURIComponent("Preventivo n. " + (o.x.numero || "") + " – Studio Tecnico Coppola")}&body=${encodeURIComponent(prevTesto(o))}`; });
+  const set = (b, fn, msg) => b.onclick = async () => { const o = L[b.dataset.pf ?? b.dataset.pr]; b.disabled = true; try { await prevModifica(Z => { const y = Z.find(z => z.id === o.x.id); if (y) fn(y); }); toast(msg); rifai(); } catch (e) { b.disabled = false; toast(e.message, true); } };
+  $$("[data-pf]", el).forEach(b => set(b, y => { y.fu = [...(y.fu || []), oggi()]; }, "Ricontatto segnato"));
+  $$("[data-pr]", el).forEach(b => set(b, y => { y.stato = "rifiutato"; y.statoData = oggi(); }, "Preventivo rifiutato"));
+}
+
+/* ===== Sopralluoghi vicini nello stesso giorno ===== */
+const ZONE = { "Rho e dintorni": /\b(rho|pero|lainate|arluno|pregnana|cornaredo|settimo milanese|vanzago|pogliano|nerviano|garbagnate|bollate|arese|baranzate|novate)\b/i, "Milano": /\bmilano\b/i, "Como": /\b(como|albate|cernobbio|brunate|tavernerio|lipomo|montorfano|cantu|cantù|mariano comense|erba)\b/i, "Monza e Brianza": /\b(monza|brianza|concorezzo|vimercate|lissone|desio|seregno|arcore|agrate|brugherio|cesano maderno|meda)\b/i, "Varese": /\b(varese|saronno|busto arsizio|gallarate|tradate|castellanza|legnano|caronno)\b/i };
+const zonaDi = s => { for (const [z, re] of Object.entries(ZONE)) if (re.test(s)) return z; const c = String(s || "").split(",").map(x => x.replace(/\d{5}|\([A-Z]{2}\)|\b[A-Z]{2}\b/g, "").trim()).filter(Boolean).pop(); return c ? titleCase(c) : ""; };
+function sopralluoghiVicini(evs) {
+  const Z = {};
+  for (const e of evs) { if (!/sopralluog|rilievo|accesso atti|\bape\b/i.test(e.summary || "")) continue; const z = zonaDi([e.location, e.summary].join(" ")); if (!z) continue;
+    const d = e.start.dateTime ? ymd(new Date(e.start.dateTime)) : e.start.date; (Z[z] = Z[z] || []).push({ e, d }); }
+  return Object.entries(Z).map(([z, L]) => ({ z, L: L.sort((a, b) => a.d.localeCompare(b.d)), giorni: [...new Set(L.map(x => x.d))] })).filter(x => x.giorni.length > 1);
+}
+
+/* ===== Regolamenti dei Comuni: archivio in Lavoro\_normativa\<Comune> e domande a Gemini ===== */
+const NORM = "_normativa";
+async function gemFile(it, key, msg) {
+  const cache = ls.get("ps_gemf", {}), c = cache[it.id];
+  if (c && c.eTag === it.eTag && c.exp > Date.now()) return c.uri;
+  msg?.(`Preparo ${it.name}…`);
+  const blob = await (await fetch(it["@microsoft.graph.downloadUrl"] || (await gItem([NORM, it._com, it.name]))["@microsoft.graph.downloadUrl"])).blob();
+  if (blob.size > 48e6) throw new Error(it.name + " è troppo grande (max 48 MB)");
+  const bd = "ps" + Date.now(), meta = JSON.stringify({ file: { display_name: it.name.slice(0, 120) } });
+  const body = new Blob([`--${bd}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${meta}\r\n--${bd}\r\nContent-Type: application/pdf\r\n\r\n`, blob, `\r\n--${bd}--`]);
+  const r = await fetch(`https://generativelanguage.googleapis.com/upload/v1beta/files?uploadType=multipart`, { method: "POST", headers: { "x-goog-api-key": key, "Content-Type": "multipart/related; boundary=" + bd }, body });
+  const j = await r.json(); if (!r.ok) throw new Error("Gemini: " + (j.error?.message || r.status));
+  let f = j.file; for (let t = 0; f.state === "PROCESSING" && t < 40; t++) { await sleep(3000); f = await (await fetch(`https://generativelanguage.googleapis.com/v1beta/${f.name}`, { headers: { "x-goog-api-key": key } })).json(); }
+  if (f.state === "FAILED") throw new Error("Gemini non riesce a leggere " + it.name);
+  cache[it.id] = { uri: f.uri, eTag: it.eTag, exp: Date.now() + 46 * 36e5 }; ls.set("ps_gemf", cache); return f.uri;
+}
+async function viewNorme() {
+  app().innerHTML = `<header class="hdr"><div class="row"><button class="ib" id="n-back">${I.back}</button><h1 style="flex:1">Regolamenti</h1></div><div class="sub">PGT, regolamento edilizio e NTA in Lavoro\\${NORM}</div></header>
+    <main><div class="card"><div class="f"><label>Comune</label><select id="n-com"><option value="">Carico…</option></select></div><div id="n-doc" class="hint"></div>
+      <div class="row2" style="margin-top:8px"><label class="btn">${I.up}Carica PDF<input type="file" accept="application/pdf" multiple id="n-up" hidden></label><button class="btn" id="n-nc">${I.plus}Nuovo Comune</button></div></div>
+      <div class="card"><div class="f"><label>Domanda</label><textarea id="n-q" rows="3" placeholder="Altezza minima del sottotetto abitabile?"></textarea></div><button class="btn pri full" id="n-go">Chiedi</button><div id="n-r" style="margin-top:12px;line-height:1.55"></div></div>
+      <div id="n-st"></div></main>${tabbar("o")}`;
+  wireTabbar(); $("#n-back").onclick = () => history.back();
+  let comuni = [], docs = [];
+  const carDoc = async () => { const c = $("#n-com").value; ls.set("ps_ncom", c); if (!c) return; $("#n-doc").textContent = "Carico…";
+    docs = ((await gList([NORM, c]).catch(() => [])) || []).filter(x => /\.pdf$/i.test(x.name)).map(x => ({ ...x, _com: c }));
+    $("#n-doc").innerHTML = docs.length ? docs.map((d, i) => `<label style="display:flex;gap:8px;align-items:center;margin:4px 0"><input type="checkbox" data-d="${i}" checked style="width:auto">${esc(d.name)}</label>`).join("") : "Nessun PDF: caricali con «Carica PDF»."; drawSt(); };
+  const drawSt = () => { const S = ls.get("ps_nstor", []).filter(s => s.c === $("#n-com").value).slice(-8).reverse();
+    $("#n-st").innerHTML = S.length ? `<div class="card og-sec"><h3>Domande recenti</h3>${S.map(s => `<details style="padding:6px 0;border-bottom:1px solid var(--line)"><summary>${esc(s.q)}</summary><div style="white-space:pre-wrap;font-size:14px;margin-top:6px">${esc(s.a)}</div></details>`).join("")}</div>` : ""; };
+  try { comuni = ((await gList([NORM]).catch(() => [])) || []).filter(x => x.folder).map(x => x.name).sort(); } catch (e) {}
+  const scelto = ls.get("ps_ncom", "") || comuni[0] || "";
+  $("#n-com").innerHTML = comuni.length ? comuni.map(c => `<option ${c === scelto ? "selected" : ""}>${esc(c)}</option>`).join("") : `<option value="">Nessun Comune: aggiungine uno</option>`;
+  $("#n-com").onchange = carDoc; carDoc();
+  $("#n-nc").onclick = async () => { const n = (await chiedi("Nuovo Comune", "Nome del Comune (es. Rho)", "", "Crea") || "").trim(); if (!n) return; try { await mkdir([], NORM, "fail").catch(() => {}); await mkdir([NORM], titleCase(n), "fail").catch(() => {}); ls.set("ps_ncom", titleCase(n)); viewNorme(); } catch (e) { toast(e.message, true); } };
+  $("#n-up").onchange = async e => { const c = $("#n-com").value, F = [...e.target.files]; e.target.value = ""; if (!c) return toast("Crea prima il Comune", true);
+    for (const [i, f] of F.entries()) { $("#n-doc").textContent = `Carico ${f.name} (${i + 1}/${F.length})…`; try { await upload([NORM, c, safeName(f.name)], f); } catch (er) { toast(f.name + ": " + er.message, true); } }
+    toast("Salvati in archivio"); carDoc(); };
+  $("#n-go").onclick = async () => { const q = $("#n-q").value.trim(), c = $("#n-com").value, sel = docs.filter((d, i) => $(`[data-d="${i}"]`)?.checked), out = $("#n-r"), b = $("#n-go");
+    if (!q) return toast("Scrivi la domanda", true); if (!sel.length) return toast("Nessun documento scelto", true);
+    const key = await chiaveGemini(); if (!key) return; b.disabled = true;
+    try { const parts = []; for (const d of sel) parts.push({ text: "Documento: " + d.name }, { file_data: { mime_type: "application/pdf", file_uri: await gemFile(d, key, t => out.innerHTML = `<span class="spin"></span> ${esc(t)}`) } });
+      out.innerHTML = `<span class="spin"></span> Cerco la risposta…`;
+      parts.push({ text: `Sei l'assistente di un perito edile in Lombardia. Rispondi in italiano alla domanda usando SOLO i documenti allegati del Comune di ${c}. Dai una risposta breve e precisa, poi per ogni punto indica documento e articolo (o pagina) da cui viene. Se i documenti non rispondono, dillo chiaramente senza inventare.\n\nDomanda: ${q}` });
+      const body = JSON.stringify({ contents: [{ role: "user", parts }], generationConfig: { temperature: 0.1 } }); let a = "", err = "";
+      for (const m of [...new Set([ls.get("ps_gmodel", "gemini-flash-latest"), "gemini-flash-latest", "gemini-2.5-flash"])]) {
+        const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`, { method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": key }, body, signal: tmo(170000) }); const j = await r.json().catch(() => ({}));
+        if (r.ok) { a = (j.candidates?.[0]?.content?.parts || []).map(x => x.text || "").join("").trim(); break; } err = j.error?.message || "errore " + r.status; if (r.status === 400 && /file/i.test(err)) { ls.set("ps_gemf", {}); } }
+      if (!a) throw new Error(err || "nessuna risposta");
+      out.innerHTML = `<div style="white-space:pre-wrap">${esc(a)}</div><p class="hint" style="margin-top:8px">Controlla sempre l'articolo citato prima di usarlo in una pratica.</p>`;
+      ls.set("ps_nstor", [...ls.get("ps_nstor", []), { c, q, a, t: new Date().toISOString() }].slice(-60)); drawSt();
+    } catch (e) { out.innerHTML = `<div class="warn">${esc(e.message)}</div>`; } b.disabled = false; };
+}
+
+/* ===== Newsletter mensile dalla bozza Gmail «Newsletter …» ===== */
+const b64s = s => btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+const utf8b64 = s => { const u = new TextEncoder().encode(s); let r = ""; for (let i = 0; i < u.length; i += 32768) r += String.fromCharCode(...u.subarray(i, i + 32768)); return btoa(r); };
+const dec64u = d => new TextDecoder().decode(Uint8Array.from(atob(d.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0)));
+function parteHtml(p) { if (!p) return null; if (p.mimeType === "text/html" && p.body?.data) return dec64u(p.body.data); for (const q of p.parts || []) { const h = parteHtml(q); if (h) return h; } if (p.mimeType === "text/plain" && p.body?.data) return esc(dec64u(p.body.data)).replace(/\n/g, "<br>"); return null; }
+async function crmNewsletter() {
+  sheet("Newsletter", `<div id="nl-b"><span class="spin"></span> Cerco la bozza «Newsletter» in Gmail…</div>`, async (bg, close) => {
+    const el = $("#nl-b", bg);
+    try {
+      const dr = (await gmail.f(`/drafts?maxResults=5&q=${encodeURIComponent("subject:Newsletter")}`)).drafts || []; if (!dr.length) { el.innerHTML = `<div class="warn">Nessuna bozza con «Newsletter» nell'oggetto.</div>`; return; }
+      const d = await gmail.f(`/drafts/${dr[0].id}?format=full`), ogg = hdr(d.message, "Subject"), html = parteHtml(d.message.payload) || "", mese = oggi().slice(0, 7);
+      const cli = elencoClienti ? elencoClienti().filter(c => c.email).map(c => ({ email: c.email.toLowerCase(), nome: c.nome, cat: "clienti" })) : [];
+      const tutti = [...(D.crm || []).filter(c => c.email && c.stato !== "no" && !c.nonl).map(c => ({ email: c.email.toLowerCase(), nome: c.nome, cat: c.cat, id: c.id, nl: c.nl })), ...cli];
+      const viste = new Set(), dest = tutti.filter(x => !viste.has(x.email) && viste.add(x.email)), inv = ls.get("ps_nl_" + mese, []);
+      const cats = { clienti: "Clienti", ...CRM_CAT };
+      el.innerHTML = `<p style="margin-top:0"><b>${esc(ogg)}</b></p><div style="max-height:160px;overflow:auto;border:1px solid var(--line);border-radius:10px;padding:8px;font-size:13px;margin-bottom:10px">${html}</div>
+        <p class="hint">A chi mandarla (una e-mail per persona, chi l'ha già ricevuta questo mese viene saltato):</p>
+        ${Object.entries(cats).map(([k, l]) => { const n = dest.filter(x => x.cat === k && !inv.includes(x.email)).length; return n ? `<label style="display:flex;gap:8px;align-items:center;margin:5px 0"><input type="checkbox" data-c="${k}" ${k !== "clienti" ? "checked" : ""} style="width:auto">${l} (${n})</label>` : ""; }).join("")}
+        <p class="hint">In fondo aggiungo: «Se non vuoi più ricevere queste e-mail rispondi CANCELLA». Gmail ne permette circa 500 al giorno.</p>
+        <div class="row2"><button class="btn" data-no>Annulla</button><button class="btn pri" data-ok>Invia</button></div><div id="nl-p" class="hint" style="margin-top:8px"></div>`;
+      $("[data-no]", bg).onclick = close;
+      $("[data-ok]", bg).onclick = async () => { const sc = $$("[data-c]", bg).filter(i => i.checked).map(i => i.dataset.c), L = dest.filter(x => sc.includes(x.cat) && !inv.includes(x.email)).slice(0, 450);
+        if (!L.length || !confirm(`Mando la newsletter a ${L.length} indirizzi?`)) return; const b = $("[data-ok]", bg); b.disabled = true; let ok = 0;
+        const corpo = html + `<p style="font-size:12px;color:#777;margin-top:24px">Studio Tecnico Davide Coppola · Perito Edile · Via Andrea Costa 2, Rho · 338 123 2370<br>Se non vuoi più ricevere queste e-mail rispondi CANCELLA.</p>`;
+        for (const x of L) { $("#nl-p", bg).textContent = `Invio ${ok + 1}/${L.length}: ${x.email}`;
+          const raw = [`To: ${x.email}`, `Subject: =?UTF-8?B?${utf8b64(ogg)}?=`, "MIME-Version: 1.0", "Content-Type: text/html; charset=UTF-8", "Content-Transfer-Encoding: base64", "", utf8b64(corpo)].join("\r\n");
+          try { await gmail.f("/messages/send", { method: "POST", body: JSON.stringify({ raw: b64s(raw) }) }); ok++; inv.push(x.email); ls.set("ps_nl_" + mese, inv); } catch (e) { toast(x.email + ": " + e.message, true); if (/limit|quota/i.test(e.message)) break; }
+          await sleep(700); }
+        await crmModifica(C => { for (const c of C) if (c.email && inv.includes(c.email.toLowerCase())) c.nl = mese; }).catch(() => {});
+        $("#nl-p", bg).textContent = `Inviate ${ok} e-mail.`; toast(`Newsletter inviata a ${ok}`); b.disabled = false; };
+    } catch (e) { el.innerHTML = `<div class="warn">${esc(e.message)}</div>`; }
+  });
+}
 function route() {
   if (window.__linkpc) return;
   if (!location.hash) { history.replaceState(null, "", "#/oggi"); }
@@ -2395,6 +2513,7 @@ function route() {
   if (h === "#/clienti") return viewClienti();
   if (h === "#/crm") return viewCrm();
   if (h === "#/resa") return viewResa();
+  if (h === "#/norme") return viewNorme();
   return viewLista();
 }
 const BOT_CFG = () => ls.get("ps_bot", null);
