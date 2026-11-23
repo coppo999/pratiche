@@ -1643,7 +1643,7 @@ function editorPrev() {
     <div class="f"><label>Listino</label><select id="pe-lis"><option value="">Privato</option><option value="1">Agenzia / cliente ricorrente</option></select></div>
     <div class="f"><label>Tipo pratica</label><select id="pe-tipo">${TIPI.map(([l, c]) => `<option value="${c}">${esc(l)}</option>`).join("")}</select></div>
     <div class="f"><label>Indirizzo immobile</label><input id="pe-ind"></div><div class="f"><label>Comune</label><input id="pe-com"></div>
-    <div class="f"><label>Voci (descrizione e onorario €)</label></div><div id="pe-v"></div><button class="btn full" id="pe-add" style="margin-bottom:10px">${I.plus}Aggiungi voce</button>
+    <div class="f"><label>Voci (descrizione e onorario €)</label></div><div id="pe-v"></div><div class="row2" style="margin-bottom:8px"><select id="pe-tadd" class="btn">${TIPI.filter(t => LISTINO[t[1]]).map(([l, c]) => `<option value="${c}">${esc(l)}</option>`).join("")}</select><button class="btn" id="pe-tok">${I.plus}Aggiungi tipologia</button></div><button class="btn full" id="pe-add" style="margin-bottom:10px">${I.plus}Aggiungi voce libera</button>
     <div class="g2"><div class="f"><label>Regime</label><select id="pe-reg"><option value="forfettario">Forfettario</option><option value="ordinario">Ordinario (IVA 22%)</option></select></div><div class="f"><label>Cassa %</label><input id="pe-cassa" value="5" inputmode="decimal"></div></div>
     <div class="tot"><span>Totale</span><span id="pe-tot">€ 0</span></div>
     <p class="hint">Il preventivo resta tra quelli <b>in attesa</b>. Il PDF (e il Word) vengono creati subito in <b>_Preventivi</b>.</p>
@@ -1656,6 +1656,9 @@ function editorPrev() {
     };
     const rifai = () => { const tc = $("#pe-tipo", bg).value; st.voci = listino(presetFor(catOf(tc)), tc, !!$("#pe-lis", bg).value); draw(); };
     $("#pe-tipo", bg).onchange = rifai; $("#pe-lis", bg).onchange = rifai;
+    $("#pe-tok", bg).onclick = () => { const tc = $("#pe-tadd", bg).value, ci = new Set(st.voci.map(v => norm(v.t)));
+      const nuove = listino(presetFor(catOf(tc)), tc, !!$("#pe-lis", bg).value).filter(v => !ci.has(norm(v.t))); if (!nuove.length) return toast("Tipologia già presente", true);
+      st.voci.push(...nuove); draw(); toast("Aggiunta: " + (TIPI.find(t => t[1] === tc) || [""])[0]); };
     $("#pe-can", bg).onchange = () => { if ($("#pe-can", bg).value.trim() && !$("#pe-lis", bg).value) { $("#pe-lis", bg).value = "1"; rifai(); } };
     $("#pe-add", bg).onclick = () => { st.voci.push({ t: "", d: "", imp: "" }); draw(); };
     $("#pe-reg", bg).onchange = tot; $("#pe-cassa", bg).oninput = tot;
