@@ -1816,9 +1816,9 @@ async function viewOggi() {
     <div class="card og-sec"><h3>Pratiche ferme <small>14+ giorni senza attività</small></h3>${fermi.map(x => ogPratica(x.p, x.g + " gg")).join("") || '<div class="hint">Tutto in movimento</div>'}</div>
     <div class="card og-sec"><h3>Incassi da fare <small>${eur(totInc)}</small></h3>${inc.slice(0, 8).map(x => ogPratica(x.p, eur(x.r))).join("") || '<div class="hint">Nessun incasso in sospeso</div>'}</div>
     <div class="card og-sec"><h3>Aperte di recente</h3>${rec.map(p => ogPratica(p)).join("") || '<div class="hint">Le pratiche che apri compaiono qui</div>'}</div>`;
-  { const L = scadenze(), el = $("#o-sc"), nr = D.crm ? crmDaRichiamare() : 0;
-    el.innerHTML = `<h3>Scadenze <small>${L.length ? L.length + " da gestire" : "APE, fine lavori, agibilità"}</small></h3>${L.slice(0, 5).map(scadRiga).join("") || '<div class="hint">Nessuna scadenza</div>'}<div class="row2" style="margin-top:8px">${L.length > 5 ? '<button class="btn" id="o-scall">Tutte le scadenze</button>' : ""}<button class="btn" id="o-resa">Resa per tipo</button><button class="btn" id="o-nor">Regolamenti</button><button class="btn" id="o-crm">Campagne${nr ? ` (${nr} da richiamare)` : ""}</button></div>`;
-    scadWire(el, L, viewOggi); $("#o-scall") && ($("#o-scall").onclick = scadApri); $("#o-crm").onclick = () => { location.hash = "#/crm"; }; $("#o-resa").onclick = () => { location.hash = "#/resa"; }; $("#o-nor").onclick = () => { location.hash = "#/norme"; };
+  { const el = $("#o-sc"), nr = D.crm ? crmDaRichiamare() : 0;
+    el.innerHTML = `<div class="row2"><button class="btn" id="o-resa">Resa per tipo</button><button class="btn" id="o-nor">Regolamenti</button><button class="btn" id="o-crm">Campagne${nr ? ` (${nr} da richiamare)` : ""}</button></div>`;
+    $("#o-crm").onclick = () => { location.hash = "#/crm"; }; $("#o-resa").onclick = () => { location.hash = "#/resa"; }; $("#o-nor").onclick = () => { location.hash = "#/norme"; };
     { const P = prevDaRicontattare(), pe = $("#o-pv"); if (!P.length) pe.remove(); else { pe.innerHTML = `<h3>Preventivi da ricontattare <small>${P.length}</small></h3>${P.slice(0, 6).map(prevFuRiga).join("")}`; prevFuWire(pe, P, viewOggi); } }
     if (!D.crm) crmCarica().then(() => { const n = crmDaRichiamare(); if (n && $("#o-crm")) $("#o-crm").textContent = `Campagne (${n} da richiamare)`; }).catch(() => {}); }
   ogWire($("#o-g")); $("#o-all").onclick = () => { location.hash = "#/task"; };
